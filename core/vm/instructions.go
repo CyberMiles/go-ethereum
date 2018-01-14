@@ -795,7 +795,7 @@ func opIsvalidator(pc *uint64, interpreter *EVMInterpreter, contract *Contract, 
 func opSchedule(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	txData, unixtime, receiver := stack.pop(), stack.pop(), stack.pop()
 	scheduleTx := umbrella.ScheduleTx{
-		Sender:   contract.Address(), //XXX: Sender should be a contract or the tx owner?
+		Sender:   contract.CallerAddress,
 		Receiver: common.BigToAddress(receiver),
 		TxData:   txData.Bytes(),
 		Unixtime: unixtime.Uint64(),
