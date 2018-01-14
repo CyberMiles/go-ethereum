@@ -1006,6 +1006,12 @@ func newFrontierInstructionSet() [256]operation {
 			validateStack: makeStackFunc(3, 1),
 			valid:         true,
 		},
+		SCHEDULE: {
+			execute:       opSchedule,
+			gasCost:       constGasFunc(GasFastestStep),
+			validateStack: makeStackFunc(2, 0),
+			valid:         true,
+		},
 	}
 }
 

@@ -219,6 +219,7 @@ const (
 	DELEGATECALL
 	ENI // Ethereum Native Interface 0xf5
 	ISVALIDATOR
+	SCHEDULE
 	STATICCALL = 0xfa
 
 	REVERT       = 0xfd
@@ -388,6 +389,7 @@ var opCodeToString = map[OpCode]string{
 	DELEGATECALL: "DELEGATECALL",
 	ENI:          "ENI",
 	ISVALIDATOR:  "ISVALIDATOR",
+	SCHEDULE:     "SCHEDULE",
 	STATICCALL:   "STATICCALL",
 	REVERT:       "REVERT",
 	SELFDESTRUCT: "SELFDESTRUCT",

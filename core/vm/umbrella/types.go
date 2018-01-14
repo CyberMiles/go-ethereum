@@ -8,4 +8,5 @@ type ScheduleTx struct {
 	Sender   common.Address
 	Receiver common.Address
 	TxData   []byte
+	Unixtime uint64
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm/eni"
+	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -791,8 +792,19 @@ func opIsvalidator(pc *uint64, interpreter *EVMInterpreter, contract *Contract, 
 	return nil, nil
 }
 
+func opSchedule(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	txData, unixtime, receiver := stack.pop(), stack.pop(), stack.pop()
+	scheduleTx := umbrella.ScheduleTx{
+		Sender:   contract.Address(), //XXX: Sender should be a contract or the tx owner?
+		Receiver: common.BigToAddress(receiver),
+		TxData:   txData.Bytes(),
+		Unixtime: unixtime.Uint64(),
+	}
+	interpreter.evm.Umbrella.EmitScheduleTx(scheduleTx)
+	return nil, nil
+}
+
 func opENI(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	// TODO: how to make it clear?
 	_ = stack.pop()
 	typeOffset, dataOffset := stack.pop().Int64(), stack.pop().Int64()
 	argsTypeLength := new(big.Int).SetBytes(memory.Get(typeOffset, 32)).Int64()

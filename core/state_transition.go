@@ -65,6 +65,8 @@ type Message interface {
 	From() common.Address
 	//FromFrontier() (common.Address, error)
 	To() *common.Address
+	SetTo(*common.Address)
+	SetData([]byte)
 
 	GasPrice() *big.Int
 	Gas() uint64
