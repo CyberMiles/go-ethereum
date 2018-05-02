@@ -17,6 +17,7 @@
 package ethapi
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -41,7 +42,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"bytes"
 )
 
 const (
@@ -1104,20 +1104,19 @@ func (args *SendTxArgs) toTransaction() *types.Transaction {
 	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
 }
 
-
 // lvyi checkERC20Tx
-func checkERC20Tx(tx *types.Transaction) error{
+func checkERC20Tx(tx *types.Transaction) error {
 
-	if tx.Value().Int64() == 0 && len(tx.Data())==68 {
+	if tx.Value().Int64() == 0 && len(tx.Data()) == 68 {
 
-		getTo := common.GetDataBig(tx.Data(), big.NewInt(5) , big.NewInt(32-1))
+		getTo := common.GetDataBig(tx.Data(), big.NewInt(5), big.NewInt(32-1))
 
 		getTo2 := new(big.Int).SetBytes(getTo).Bytes()
 
 		//log.Info(tx.To().Bytes())
 		//log.Info(getTo2)
 
-		if bytes.Compare(tx.To().Bytes(), getTo2)==0{
+		if bytes.Compare(tx.To().Bytes(), getTo2) == 0 {
 			log.Info("ERC20")
 			return errors.New("The ERC20 contract can't receive token!")
 		}
@@ -1125,7 +1124,6 @@ func checkERC20Tx(tx *types.Transaction) error{
 	return nil
 
 }
-
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
 func submitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {

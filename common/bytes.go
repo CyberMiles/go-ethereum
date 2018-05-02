@@ -19,6 +19,9 @@ package common
 
 import (
 	"encoding/hex"
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common/math"
 )
 
 func ToHex(b []byte) string {
@@ -111,4 +114,14 @@ func LeftPadBytes(slice []byte, l int) []byte {
 	copy(padded[l-len(slice):], slice)
 
 	return padded
+}
+
+func GetDataBig(data []byte, start *big.Int, size *big.Int) []byte {
+
+	dlen := big.NewInt(int64(len(data)))
+
+	s := math.BigMin(start, dlen)
+	e := math.BigMin(new(big.Int).Add(s, size), dlen)
+
+	return RightPadBytes(data[s.Uint64():e.Uint64()], int(size.Uint64()))
 }
