@@ -201,38 +201,45 @@ func TestSLT(t *testing.T) {
 }
 func TestSadd(t *testing.T) {
 	var (
-		env   = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
-		stack = newstack()
-		pc    = uint64(0)
-		a     = big.NewInt(0)
+		env            = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		stack          = newstack()
+		pc             = uint64(0)
+		a              = big.NewInt(0)
+		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
+	env.interpreter = evmInterpreter
+	evmInterpreter.intPool = poolOfIntPools.get()
 	a.SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err := opSadd(&pc, env, nil, nil, stack)
+	_, err := opSadd(&pc, evmInterpreter, nil, nil, stack)
 	if err == nil {
 		t.Errorf("Sadd should overflow")
 	}
 	a.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err = opSadd(&pc, env, nil, nil, stack)
+	_, err = opSadd(&pc, evmInterpreter, nil, nil, stack)
 	if err != nil {
 		t.Errorf("Sadd should not overflow")
 	}
+	poolOfIntPools.put(evmInterpreter.intPool)
 }
 
 func TestUadd(t *testing.T) {
 	var (
-		env   = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
-		stack = newstack()
-		pc    = uint64(0)
-		a     = big.NewInt(0)
+		env            = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		stack          = newstack()
+		pc             = uint64(0)
+		a              = big.NewInt(0)
+		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
+	env.interpreter = evmInterpreter
+	evmInterpreter.intPool = poolOfIntPools.get()
 	a.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err := opUadd(&pc, env, nil, nil, stack)
+	_, err := opUadd(&pc, evmInterpreter, nil, nil, stack)
 	if err == nil {
 		t.Errorf("Uadd should overflow")
 	}
@@ -240,25 +247,29 @@ func TestUadd(t *testing.T) {
 	a.SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err = opUadd(&pc, env, nil, nil, stack)
+	_, err = opUadd(&pc, evmInterpreter, nil, nil, stack)
 	if err != nil {
 		t.Errorf("Uadd should not overflow")
 	}
+	poolOfIntPools.put(evmInterpreter.intPool)
 }
 
 func TestSsub(t *testing.T) {
 	var (
-		env   = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
-		stack = newstack()
-		pc    = uint64(0)
-		a     = big.NewInt(0)
-		b     = big.NewInt(0)
+		env            = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		stack          = newstack()
+		pc             = uint64(0)
+		a              = big.NewInt(0)
+		b              = big.NewInt(0)
+		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
+	env.interpreter = evmInterpreter
+	evmInterpreter.intPool = poolOfIntPools.get()
 	a.SetString("0000000000000000000000000000000000000000000000000000000000000001", 16)
 	stack.push(a)
 	b.SetString("8000000000000000000000000000000000000000000000000000000000000000", 16)
 	stack.push(b)
-	_, err := opSsub(&pc, env, nil, nil, stack)
+	_, err := opSsub(&pc, evmInterpreter, nil, nil, stack)
 	if err == nil {
 		t.Errorf("Ssub should overflow")
 	}
@@ -266,24 +277,28 @@ func TestSsub(t *testing.T) {
 	stack.push(a)
 	b.SetString("0000000000000000000000000000000000000000000000000000000000000087", 16)
 	stack.push(b)
-	_, err = opSsub(&pc, env, nil, nil, stack)
+	_, err = opSsub(&pc, evmInterpreter, nil, nil, stack)
 	if err != nil {
 		t.Errorf("Ssub should not overflow")
 	}
+	poolOfIntPools.put(evmInterpreter.intPool)
 }
 func TestUsub(t *testing.T) {
 	var (
-		env   = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
-		stack = newstack()
-		pc    = uint64(0)
-		a     = big.NewInt(0)
-		b     = big.NewInt(0)
+		env            = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		stack          = newstack()
+		pc             = uint64(0)
+		a              = big.NewInt(0)
+		b              = big.NewInt(0)
+		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
+	env.interpreter = evmInterpreter
+	evmInterpreter.intPool = poolOfIntPools.get()
 	a.SetString("1", 16)
 	stack.push(a)
 	b.SetString("0", 16)
 	stack.push(b)
-	_, err := opUsub(&pc, env, nil, nil, stack)
+	_, err := opUsub(&pc, evmInterpreter, nil, nil, stack)
 	if err == nil {
 		t.Errorf("Usub should overflow")
 	}
@@ -291,56 +306,65 @@ func TestUsub(t *testing.T) {
 	stack.push(a)
 	b.SetString("0000000000000000000000000000000000000000000000000000000000000087", 16)
 	stack.push(b)
-	_, err = opUsub(&pc, env, nil, nil, stack)
+	_, err = opUsub(&pc, evmInterpreter, nil, nil, stack)
 	if err != nil {
 		t.Errorf("Ssub should not overflow")
 	}
+	poolOfIntPools.put(evmInterpreter.intPool)
 }
 
 func TestSmul(t *testing.T) {
 	var (
-		env   = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
-		stack = newstack()
-		pc    = uint64(0)
-		a     = big.NewInt(0)
+		env            = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		stack          = newstack()
+		pc             = uint64(0)
+		a              = big.NewInt(0)
+		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
+	env.interpreter = evmInterpreter
+	evmInterpreter.intPool = poolOfIntPools.get()
 	a.SetString("7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err := opSmul(&pc, env, nil, nil, stack)
+	_, err := opSmul(&pc, evmInterpreter, nil, nil, stack)
 	if err == nil {
 		t.Errorf("Smul should overflow")
 	}
 	a.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err = opSmul(&pc, env, nil, nil, stack)
+	_, err = opSmul(&pc, evmInterpreter, nil, nil, stack)
 	if err != nil {
 		t.Errorf("Umul should not overflow")
 	}
+	poolOfIntPools.put(evmInterpreter.intPool)
 }
 
 func TestUmul(t *testing.T) {
 	var (
-		env   = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
-		stack = newstack()
-		pc    = uint64(0)
-		a     = big.NewInt(0)
+		env            = NewEVM(Context{}, nil, params.TestChainConfig, Config{})
+		stack          = newstack()
+		pc             = uint64(0)
+		a              = big.NewInt(0)
+		evmInterpreter = NewEVMInterpreter(env, env.vmConfig)
 	)
+	env.interpreter = evmInterpreter
+	evmInterpreter.intPool = poolOfIntPools.get()
 	a.SetString("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err := opUmul(&pc, env, nil, nil, stack)
+	_, err := opUmul(&pc, evmInterpreter, nil, nil, stack)
 	if err == nil {
 		t.Errorf("Umul should overflow")
 	}
 	a.SetString("ffffffffffffffffffffff", 16)
 	stack.push(a)
 	stack.push(a)
-	_, err = opUmul(&pc, env, nil, nil, stack)
+	_, err = opUmul(&pc, evmInterpreter, nil, nil, stack)
 	if err != nil {
 		t.Errorf("Umul should not overflow")
 	}
+	poolOfIntPools.put(evmInterpreter.intPool)
 }
 
 func opBenchmark(bench *testing.B, op func(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error), args ...string) {
