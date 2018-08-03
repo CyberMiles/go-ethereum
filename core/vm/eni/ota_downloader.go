@@ -119,8 +119,11 @@ func (v *Version) Compare(a Version) int {
 	}
 }
 
-// Check a given OTAInfo is valid to upgrade system setting
-func (ota *OTAInstance) IsValidUpgrade(info OTAInfo) (bool, error) {
+// Check a given OTAInfo is valid to be register
+func (ota *OTAInstance) IsValidNewLib(info OTAInfo) (bool, error) {
+	if _, ok := ota.enableInfos[info.LibName]; !ok {
+		return true, nil
+	}
 	currentVersion := NewVersion()
 	err := currentVersion.BuildFromString(ota.enableInfos[info.LibName].Version)
 	if err != nil {
