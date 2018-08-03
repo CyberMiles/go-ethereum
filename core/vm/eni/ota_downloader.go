@@ -36,6 +36,7 @@ func NewOTAInstance() *OTAInstance {
 		return nil
 	}
 
+	initializeLibDir()
 	ota := OTAInstance{
 		availableInfos: make(map[string]OTAInfo),
 		enableInfos:    make(map[string]OTAInfo),
@@ -58,7 +59,8 @@ type Version struct {
 	patch int
 }
 
-func init() {
+// Create staging and retired directories if these are not existed
+func initializeLibDir() {
 	libPath, err := getLibPath()
 	if err != nil {
 		return
