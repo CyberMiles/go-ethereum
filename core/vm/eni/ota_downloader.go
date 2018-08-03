@@ -121,16 +121,17 @@ func (v *Version) Compare(a Version) int {
 
 // Check a given OTAInfo is valid to be register
 func (ota *OTAInstance) IsValidNewLib(info OTAInfo) (bool, error) {
+	nextVersion := NewVersion()
+	err := nextVersion.BuildFromString(info.Version)
+	if err != nil {
+		return false, err
+	}
+
 	if _, ok := ota.enableInfos[info.LibName]; !ok {
 		return true, nil
 	}
 	currentVersion := NewVersion()
-	err := currentVersion.BuildFromString(ota.enableInfos[info.LibName].Version)
-	if err != nil {
-		return false, err
-	}
-	nextVersion := NewVersion()
-	err = nextVersion.BuildFromString(info.Version)
+	err = currentVersion.BuildFromString(ota.enableInfos[info.LibName].Version)
 	if err != nil {
 		return false, err
 	}
