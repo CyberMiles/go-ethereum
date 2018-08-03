@@ -186,7 +186,7 @@ func (ota *OTAInstance) Verify(info OTAInfo) (err error) {
 // Register staging libraries to lib.
 func (ota *OTAInstance) Register(info OTAInfo) (err error) {
 	// If there is an old version, move it to retired folder.
-	if originInfo, exist := ota.enableInfos[info.libName]; !exist {
+	if originInfo, exist := ota.enableInfos[info.LibName]; exist {
 		err = os.Rename(
 			filepath.Join(ota.libPath, generateFileName(originInfo)),
 			filepath.Join(ota.retiredLibPath, generateFileName(originInfo)))
