@@ -181,37 +181,55 @@ func (ota *OTAInstance) Verify(info OTAInfo) (err error) {
 
 // Register staging libraries to lib.
 func (ota *OTAInstance) Register(info OTAInfo) (err error) {
+	// If there is an old version, move it to retired folder.
+	if originInfo, exist := ota.enableInfos[info.libName]; !exist {
+		err = os.Rename(
+			filepath.Join(ota.libPath, generateFileName(originInfo)),
+			filepath.Join(ota.retiredLibPath, generateFileName(originInfo)))
+		if err != nil {
+			return err
+		}
+	}
+
 	// Overwrite old libraries by libName.
 	ota.enableInfos[info.libName] = info
 	err = os.Rename(
 		filepath.Join(ota.stagingLibPath, generateFileName(info)),
 		filepath.Join(ota.libPath, generateFileName(info)))
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Remove unused libraries from lib, staging, and retired folder
+func (ota *OTAInstance) Destroy(info OTAInfo) (err error) {
+	err = removeLibrary(ota.libPath, info)
+	if err != nil {
+		return err
+	}
+	err = removeLibrary(ota.stagingLibPath, info)
+	if err != nil {
+		return err
+	}
+	err = removeLibrary(ota.retiredLibPath, info)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// Remove unused libraries from lib and staging folder
-func (ota *OTAInstance) Destroy(info OTAInfo) (err error) {
-	// Check lib folder first.
-	fileName := filepath.Join(ota.libPath, generateFileName(info))
+// Remove library from specific path
+func removeLibrary(path string, info OTAInfo) (err error) {
+	fileName := filepath.Join(path, generateFileName(info))
 	if _, err := os.Stat(fileName); err == nil {
 		err = os.Remove(fileName)
 		if err != nil {
 			return err
 		}
 	}
-
-	// Check staging folder first.
-	fileName = filepath.Join(ota.stagingLibPath, generateFileName(info))
-	if _, err := os.Stat(fileName); err == nil {
-		err = os.Remove(fileName)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
