@@ -193,6 +193,8 @@ func (ota *OTAInstance) Register(info OTAInfo) (err error) {
 		if err != nil {
 			return err
 		}
+		// Remove the retired library from enableInfos
+		delete(ota.enableInfos, info.LibName)
 	}
 
 	// Overwrite old libraries by libName.
