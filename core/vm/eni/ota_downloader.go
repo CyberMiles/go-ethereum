@@ -44,6 +44,7 @@ func NewOTAInstance() *OTAInstance {
 		stagingLibPath: filepath.Join(libPath, "staging"),
 		retiredLibPath: filepath.Join(libPath, "retired"),
 	}
+	ota.loadExistedLib()
 	return &ota
 }
 
@@ -296,4 +297,45 @@ func (ota *OTAInstance) downloadFromUrl(info OTAInfo) (err error) {
 	}
 
 	return nil
+}
+
+// Load existed libraries from ENI library path.
+func (ota *OTAInstance) loadExistedLib() {
+	var dynamicLibs []string
+
+	// Get all dynamic libraries from library path.
+	filepath.Walk(ota.libPath, func(path string, fileinfo os.FileInfo, err error) error {
+		if fileinfo.Mode().IsRegular() && filepath.Ext(path) == ".so" {
+			dynamicLibs = append(dynamicLibs, path)
+		}
+		return nil
+	})
+
+	// Library name format examples:
+	//	reverse_v1.0.0.so
+	//	eni_rsa_v1.5.9.so
+	//	eni_scrypt_v9.10.11.so
+	libReg := regexp.MustCompile(`\A[A-Za-z]+_v\d+\.\d+\.\d+\.so\z`)
+	for _, lib := range dynamicLibs {
+		if libReg.MatchString(lib) {
+			// Parse LibName and Version from the file name.
+			libSlice := strings.Split(lib, "_")
+			libName := strings.Join(libSlice[:len(libSlice)-1], "_")
+			versionSlice := strings.Split(libSlice[len(libSlice)], ".")
+			version := strings.Join(versionSlice[:len(versionSlice)-1], ".")
+			info := OTAInfo{
+				LibName:  libName,
+				Version:  version,
+				Url:      "",
+				Checksum: "",
+			}
+			// Load local libraries into available info list.
+			hashKey := info.LibName + info.Version
+			if _, exist := ota.availableInfos[hashKey]; !exist {
+				ota.availableInfos[hashKey] = info
+			}
+			// Load local libraries into enable info list.
+			ota.enableInfos[info.LibName] = info
+		}
+	}
 }
