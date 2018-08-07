@@ -124,6 +124,10 @@ func (v *Version) Compare(a Version) int {
 
 // Check a given OTAInfo is valid to be register
 func (ota *OTAInstance) IsValidNewLib(info OTAInfo) (bool, error) {
+	nameReg := regexp.MustCompile(`\A[A-Za-z][A-Za-z_]*[A-Za-z]\z`)
+	if !nameReg.MatchString(info.LibName) {
+		return false, nil
+	}
 	nextVersion := NewVersion()
 	err := nextVersion.BuildFromString(info.Version)
 	if err != nil {
@@ -315,7 +319,7 @@ func (ota *OTAInstance) loadExistedLib() {
 	//	reverse_v1.0.0.so
 	//	eni_rsa_v1.5.9.so
 	//	eni_scrypt_v9.10.11.so
-	libReg := regexp.MustCompile(`\A[A-Za-z]+_v\d+\.\d+\.\d+\.so\z`)
+	libReg := regexp.MustCompile(`\A[A-Za-z][A-Za-z_]*[A-Za-z]_v\d+\.\d+\.\d+\.so\z`)
 	for _, lib := range dynamicLibs {
 		if libReg.MatchString(lib) {
 			// Parse LibName and Version from the file name.
