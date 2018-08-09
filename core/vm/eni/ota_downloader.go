@@ -310,7 +310,8 @@ func (ota *OTAInstance) loadExistedLib() {
 	// Get all dynamic libraries from library path.
 	filepath.Walk(ota.libPath, func(path string, fileinfo os.FileInfo, err error) error {
 		if fileinfo.Mode().IsRegular() && filepath.Ext(path) == ".so" {
-			dynamicLibs = append(dynamicLibs, path)
+			_, file := filepath.Split(path)
+			dynamicLibs = append(dynamicLibs, file)
 		}
 		return nil
 	})
@@ -325,7 +326,7 @@ func (ota *OTAInstance) loadExistedLib() {
 			// Parse LibName and Version from the file name.
 			libSlice := strings.Split(lib, "_")
 			libName := strings.Join(libSlice[:len(libSlice)-1], "_")
-			versionSlice := strings.Split(libSlice[len(libSlice)], ".")
+			versionSlice := strings.Split(libSlice[len(libSlice)-1], ".")
 			version := strings.Join(versionSlice[:len(versionSlice)-1], ".")
 			info := OTAInfo{
 				LibName:  libName,
