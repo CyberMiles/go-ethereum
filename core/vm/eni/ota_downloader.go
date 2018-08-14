@@ -17,13 +17,12 @@ import (
 
 type OTAInfo struct {
 	LibName  string
-	Version  string // The format of version should be vX.Y.Z where X, Y, Z are all integers. E.g. v1.0.0, v3.2.0
-	Url      string // URL to retrieve the library file
-	Checksum string // SHA512 checksum to check the health of the library
+	Version  string   // The format of version should be vX.Y.Z where X, Y, Z are all integers. E.g. v1.0.0, v3.2.0
+	Url      []string // URL to retrieve the library file
+	Checksum string   // SHA512 checksum to check the health of the library
 }
 
 type OTAInstance struct {
-	availableInfos map[string]OTAInfo
 	enableInfos    map[string]OTAInfo
 	libPath        string
 	stagingLibPath string
@@ -38,7 +37,6 @@ func NewOTAInstance() *OTAInstance {
 
 	initializeLibDir()
 	ota := OTAInstance{
-		availableInfos: make(map[string]OTAInfo),
 		enableInfos:    make(map[string]OTAInfo),
 		libPath:        libPath,
 		stagingLibPath: filepath.Join(libPath, "staging"),
@@ -150,23 +148,8 @@ func (ota *OTAInstance) IsValidNewLib(info OTAInfo) (bool, error) {
 	}
 }
 
-// Download the library to staging folder
-func (ota *OTAInstance) Download(info OTAInfo) (err error) {
-	hashKey := info.LibName + info.Version
-	// Cache OTAInfo to available list.
-	if _, exist := ota.availableInfos[hashKey]; !exist {
-		ota.availableInfos[hashKey] = info
-	}
-
-	err = ota.downloadFromUrl(info)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Verify downloaded staging libraries.
-func (ota *OTAInstance) Verify(info OTAInfo) (err error) {
+func (ota *OTAInstance) verify(info OTAInfo) (err error) {
 	libFile, err := os.Open(filepath.Join(
 		ota.stagingLibPath,
 		generateFileName(info)))
@@ -265,39 +248,47 @@ func getLibPath() (libPath string, err error) {
 }
 
 // Download the library from given url. The library will
-// be saved in ENI_LIBRARY_PATH/staging named OTAInfo.libName.
-func (ota *OTAInstance) downloadFromUrl(info OTAInfo) (err error) {
+// be saved in ENI_LIBRARY_PATH/staging named OTAInfo.LibName.
+func (ota *OTAInstance) DownloadInfo(info OTAInfo) (err error) {
 	// If file is existed, we don't need to download it again.
 	fileName := filepath.Join(ota.stagingLibPath, generateFileName(info))
 	if _, err := os.Stat(fileName); err == nil {
-		return nil
+		if err = ota.verify(info); err == nil {
+			return nil
+		}
 	}
 
-	// Create the output file.
-
-	// If the output file is broken, remove it.
-	defer func() {
-		if rec := recover(); rec != nil {
-			os.Remove(fileName)
-			err = rec.(error)
+	for _, url := range info.Url {
+		err = ota.downloadFromUrl(fileName, url)
+		if err == nil {
+			err = ota.verify(info)
+			if err == nil {
+				break
+			}
 		}
-	}()
+	}
 
+	return
+}
+
+func (ota *OTAInstance) downloadFromUrl(fileName, url string) (err error) {
 	output, err := os.Create(fileName)
 	if err != nil {
-		panic(err)
+		return
 	}
 	defer output.Close()
 
-	response, err := http.Get(info.url)
+	response, err := http.Get(url)
 	if err != nil {
-		panic(err)
+		os.Remove(fileName)
+		return
 	}
 	defer response.Body.Close()
 
 	_, err = io.Copy(output, response.Body)
 	if err != nil {
-		panic(err)
+		os.Remove(fileName)
+		return
 	}
 
 	return nil
@@ -309,9 +300,11 @@ func (ota *OTAInstance) loadExistedLib() {
 
 	// Get all dynamic libraries from library path.
 	filepath.Walk(ota.libPath, func(path string, fileinfo os.FileInfo, err error) error {
+		if fileinfo.IsDir() && (path == ota.retiredLibPath || path == ota.stagingLibPath) {
+			return filepath.SkipDir
+		}
 		if fileinfo.Mode().IsRegular() && filepath.Ext(path) == ".so" {
-			_, file := filepath.Split(path)
-			dynamicLibs = append(dynamicLibs, file)
+			dynamicLibs = append(dynamicLibs, fileinfo.Name())
 		}
 		return nil
 	})
@@ -331,13 +324,8 @@ func (ota *OTAInstance) loadExistedLib() {
 			info := OTAInfo{
 				LibName:  libName,
 				Version:  version,
-				Url:      "",
+				Url:      []string{},
 				Checksum: "",
-			}
-			// Load local libraries into available info list.
-			hashKey := info.LibName + info.Version
-			if _, exist := ota.availableInfos[hashKey]; !exist {
-				ota.availableInfos[hashKey] = info
 			}
 			// Load local libraries into enable info list.
 			ota.enableInfos[info.LibName] = info
