@@ -180,10 +180,13 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		panic("No supported ewasm interpreter yet.")
 	}
 
+	if len(vmConfig.EVMInterpreter) != 0 || len(os.Getenv("EVMC_PATH")) != 0 {
+		evm.interpreters = append(evm.interpreters, NewEVMC(vmConfig.EVMInterpreter, evm))
+	}
+
 	// vmConfig.EVMInterpreter will be used by EVM-C, it won't be checked here
 	// as we always want to have the built-in EVM as the failover option.
 	evm.interpreters = append(evm.interpreters, NewEVMInterpreter(evm, vmConfig))
-	evm.interpreter = evm.interpreters[0]
 
 	return evm
 }

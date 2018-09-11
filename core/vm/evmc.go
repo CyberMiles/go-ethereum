@@ -42,14 +42,17 @@ var (
 	evmcInstance *evmc.Instance
 )
 
-func createVM() *evmc.Instance {
+func createVM(path string) *evmc.Instance {
 	createMu.Lock()
 	defer createMu.Unlock()
 
 	if evmcInstance == nil {
 		vmPath := os.Getenv("EVMC_PATH")
 		if len(vmPath) == 0 {
-			panic("EVMC VM path not provided, set EVMC_PATH environment variable")
+			vmPath = path
+		}
+		if len(vmPath) == 0 {
+			panic("EVMC VM path not provided, set EVMC_PATH environment variable or --vm.evm option")
 		}
 
 		var err error
@@ -75,8 +78,8 @@ func createVM() *evmc.Instance {
 	return evmcInstance
 }
 
-func NewEVMC(env *EVM) *EVMC {
-	return &EVMC{createVM(), env, false}
+func NewEVMC(path string, env *EVM) *EVMC {
+	return &EVMC{createVM(path), env, false}
 }
 
 // Implements evmc.HostContext interface.
@@ -238,22 +241,26 @@ func (host *HostContext) Call(kind evmc.CallKind,
 
 func getRevision(env *EVM) evmc.Revision {
 	n := env.BlockNumber
-	if env.ChainConfig().IsByzantium(n) {
+	conf := env.ChainConfig()
+	if conf.IsConstantinople(n) {
+		return evmc.Constantinople
+	}
+	if conf.IsByzantium(n) {
 		return evmc.Byzantium
 	}
-	if env.ChainConfig().IsEIP158(n) {
+	if conf.IsEIP158(n) {
 		return evmc.SpuriousDragon
 	}
-	if env.ChainConfig().IsEIP150(n) {
+	if conf.IsEIP150(n) {
 		return evmc.TangerineWhistle
 	}
-	if env.ChainConfig().IsHomestead(n) {
+	if conf.IsHomestead(n) {
 		return evmc.Homestead
 	}
 	return evmc.Frontier
 }
 
-func (evm *EVMC) Run(contract *Contract, input []byte) (ret []byte, err error) {
+func (evm *EVMC) Run(contract *Contract, input []byte, readOnly bool) (ret []byte, err error) {
 	evm.env.depth++
 	defer func() { evm.env.depth-- }()
 
@@ -262,11 +269,17 @@ func (evm *EVMC) Run(contract *Contract, input []byte) (ret []byte, err error) {
 		return nil, nil
 	}
 
-	// FIXME: Fix the type of evmc.Call in evmc package.
-	var kind evmc.CallKind = evmc.Call
+	kind := evmc.Call
 	if evm.env.StateDB.GetCodeSize(contract.Address()) == 0 {
 		// Guess if this is a CREATE.
 		kind = evmc.Create
+	}
+
+	// Make sure the readOnly is only set if we aren't in readOnly yet.
+	// This makes also sure that the readOnly flag isn't removed for child calls.
+	if readOnly && !evm.readOnly {
+		evm.readOnly = true
+		defer func() { evm.readOnly = false }()
 	}
 
 	output, gasLeft, err := evm.instance.Execute(
@@ -296,12 +309,4 @@ func (evm *EVMC) Run(contract *Contract, input []byte) (ret []byte, err error) {
 
 func (evm *EVMC) CanRun([]byte) bool {
 	return true
-}
-
-func (evm *EVMC) IsReadOnly() bool {
-	return evm.readOnly
-}
-
-func (evm *EVMC) SetReadOnly(readOnly bool) {
-	evm.readOnly = readOnly
 }
