@@ -2,25 +2,8 @@
  * EVMC: Ethereum Client-VM Connector API
  *
  * @copyright
- * Copyright 2018 Pawel Bylica.
- * Licensed under the MIT License. See the LICENSE file.
- *
- * ## High level design rules
- *
- * 1. Pass function arguments and results by value.
- *    This rule comes from modern C++ and tries to avoid costly alias analysis
- *    needed for optimization. As the result we have a lots of complex structs
- *    and unions. And variable sized arrays of bytes cannot be passed by copy.
- * 2. The EVM operates on integers so it prefers values to be host-endian.
- *    On the other hand, LLVM can generate good code for byte swaping.
- *    The interface also tries to match host application "natural" endianess.
- *    I would like to know what endianess you use and where.
- *
- * ## Terms
- *
- * 1. EVM  -- an Ethereum Virtual Machine instance/implementation.
- * 2. Host -- an entity controlling the EVM. The Host requests code execution
- *            and responses to EVM queries by callback functions.
+ * Copyright 2018 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0. See the LICENSE file.
  *
  * @defgroup EVMC EVMC
  * @{
@@ -275,6 +258,22 @@ enum evmc_status_code
      */
     EVMC_CONTRACT_VALIDATION_FAILURE = 13,
 
+    /**
+     * An argument to a state accessing method has a value outside of the
+     * accepted range of values.
+     */
+    EVMC_ARGUMENT_OUT_OF_RANGE = 14,
+
+    /**
+     * A WebAssembly `unreachable` instruction has been hit during exection.
+     */
+    EVMC_WASM_UNREACHABLE_INSTRUCTION = 15,
+
+    /**
+     * A WebAssembly trap has been hit during execution. This can be for many
+     * reasons, including division by zero, validation errors, etc.
+     */
+    EVMC_WASM_TRAP = 16,
 
     /** EVM implementation generic internal error. */
     EVMC_INTERNAL_ERROR = -1,
@@ -299,12 +298,18 @@ struct evmc_result;
 /**
  * Releases resources assigned to an execution result.
  *
- *  This function releases memory (and other resources, if any) assigned to the
- *  specified execution result making the result object invalid.
+ * This function releases memory (and other resources, if any) assigned to the
+ * specified execution result making the result object invalid.
  *
- *  @param result  The execution result which resource are to be released. The
- *                 result itself it not modified by this function, but becomes
- *                 invalid and user should discard it as well.
+ * @param result  The execution result which resources are to be released. The
+ *                result itself it not modified by this function, but becomes
+ *                invalid and user MUST discard it as well.
+ *                This MUST NOT be NULL.
+ *
+ * @note
+ * The result is passed by pointer to avoid (shallow) copy of the ::evmc_result
+ * struct. Think of this as the best possible C language approximation to
+ * passing objects by reference.
  */
 typedef void (*evmc_release_result_fn)(const struct evmc_result* result);
 
@@ -389,40 +394,6 @@ struct evmc_result
 
 
 /**
- * The union representing evmc_result "optional data".
- *
- *  The evmc_result struct contains 24 bytes of optional data that can be
- *  reused by the object creator if the object does not contain
- *  evmc_result::create_address.
- *
- *  An EVM implementation MAY use this memory to keep additional data
- *  when returning result from ::evmc_execute_fn.
- *  The host application MAY use this memory to keep additional data
- *  when returning result of performed calls from ::evmc_call_fn.
- *
- *  @see evmc_get_optional_data(), evmc_get_const_optional_data().
- */
-union evmc_result_optional_data
-{
-    uint8_t bytes[24]; /**< 24 bytes of optional data. */
-    void* pointer;     /**< Optional pointer. */
-};
-
-/** Provides read-write access to evmc_result "optional data". */
-static inline union evmc_result_optional_data* evmc_get_optional_data(struct evmc_result* result)
-{
-    return (union evmc_result_optional_data*)&result->create_address;
-}
-
-/** Provides read-only access to evmc_result "optional data". */
-static inline const union evmc_result_optional_data* evmc_get_const_optional_data(
-    const struct evmc_result* result)
-{
-    return (const union evmc_result_optional_data*)&result->create_address;
-}
-
-
-/**
  * Check account existence callback function
  *
  *  This callback function is used by the EVM to check if
@@ -482,7 +453,7 @@ enum evmc_storage_status
     /**
      * A storage item has been deleted: X -> 0.
      */
-    EVMC_STORAGE_DELETED = 3,
+    EVMC_STORAGE_DELETED = 3
 };
 
 

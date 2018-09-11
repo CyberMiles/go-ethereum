@@ -1,11 +1,11 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 Pawel Bylica.
-// Licensed under the MIT License. See the LICENSE file.
+// Copyright 2018 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file.
 
 package evmc
 
 /*
-#cgo CFLAGS:  -I${SRCDIR}/..
+#cgo CFLAGS:  -I${SRCDIR}/.. -Wall -Wextra -Wno-unused-parameter
 
 #include <evmc/evmc.h>
 
@@ -29,20 +29,20 @@ import (
 type CallKind int
 
 const (
-	Call         = C.EVMC_CALL
-	DelegateCall = C.EVMC_DELEGATECALL
-	CallCode     = C.EVMC_CALLCODE
-	Create       = C.EVMC_CREATE
-	Create2      = C.EVMC_CREATE2
+	Call         CallKind = C.EVMC_CALL
+	DelegateCall CallKind = C.EVMC_DELEGATECALL
+	CallCode     CallKind = C.EVMC_CALLCODE
+	Create       CallKind = C.EVMC_CREATE
+	Create2      CallKind = C.EVMC_CREATE2
 )
 
 type StorageStatus int
 
 const (
-	StorageUnchanged = C.EVMC_STORAGE_UNCHANGED
-	StorageModified  = C.EVMC_STORAGE_MODIFIED
-	StorageAdded     = C.EVMC_STORAGE_ADDED
-	StorageDeleted   = C.EVMC_STORAGE_DELETED
+	StorageUnchanged StorageStatus = C.EVMC_STORAGE_UNCHANGED
+	StorageModified  StorageStatus = C.EVMC_STORAGE_MODIFIED
+	StorageAdded     StorageStatus = C.EVMC_STORAGE_ADDED
+	StorageDeleted   StorageStatus = C.EVMC_STORAGE_DELETED
 )
 
 func goAddress(in C.struct_evmc_address) common.Address {

@@ -1,12 +1,12 @@
 // EVMC: Ethereum Client-VM Connector API.
-// Copyright 2018 Pawel Bylica.
-// Licensed under the MIT License. See the LICENSE file.
+// Copyright 2018 The EVMC Authors.
+// Licensed under the Apache License, Version 2.0. See the LICENSE file.
 
 package evmc
 
 /*
-#cgo CFLAGS:  -I${SRCDIR}/..
-#cgo LDFLAGS: -ldl
+#cgo CFLAGS:  -I${SRCDIR}/.. -Wall -Wextra
+#cgo !windows LDFLAGS: -ldl
 
 #include <evmc/evmc.h>
 #include <evmc/helpers.h>
@@ -17,10 +17,10 @@ package evmc
 
 static inline int set_option(struct evmc_instance* instance, char* name, char* value)
 {
-	int r = evmc_set_option(instance, name, value);
+	int ret = evmc_set_option(instance, name, value);
 	free(name);
 	free(value);
-	return r;
+	return ret;
 }
 
 struct extended_context
@@ -52,7 +52,7 @@ static struct evmc_result execute_wrapper(struct evmc_instance* instance, int64_
 	};
 
 	struct extended_context ctx = {{&evmc_go_fn_table}, context_index};
-	return instance->execute(instance, &ctx.context, rev, &msg, code, code_size);
+	return evmc_execute(instance, &ctx.context, rev, &msg, code, code_size);
 }
 */
 import "C"
@@ -110,17 +110,21 @@ func (err Error) Error() string {
 		return "evmc: precompile failure"
 	case C.EVMC_CONTRACT_VALIDATION_FAILURE:
 		return "evmc: contract validation failure"
-	case C.EVMC_INTERNAL_ERROR:
-		return "evmc: internal error"
+	case C.EVMC_ARGUMENT_OUT_OF_RANGE:
+		return "evmc: argument out of range"
+	case C.EVMC_WASM_UNREACHABLE_INSTRUCTION:
+		return "evmc: the WebAssembly unreachable instruction has been hit during execution"
+	case C.EVMC_WASM_TRAP:
+		return "evmc: a WebAssembly trap has been hit during execution"
 	case C.EVMC_REJECTED:
 		return "evmc: rejected"
 	}
 
 	if code < 0 {
-		return fmt.Sprintf("evmc: unknown internal error (%d)", int32(code))
+		return fmt.Sprintf("evmc: internal error (%d)", int32(code))
 	}
 
-	panic(fmt.Sprintf("evmc: unknown status code %d", int32(code)))
+	return fmt.Sprintf("evmc: unknown non-fatal status code %d", int32(code))
 }
 
 const (
@@ -131,12 +135,12 @@ const (
 type Revision int32
 
 const (
-	Frontier         = C.EVMC_FRONTIER
-	Homestead        = C.EVMC_HOMESTEAD
-	TangerineWhistle = C.EVMC_TANGERINE_WHISTLE
-	SpuriousDragon   = C.EVMC_SPURIOUS_DRAGON
-	Byzantium        = C.EVMC_BYZANTIUM
-	Constantinople   = C.EVMC_CONSTANTINOPLE
+	Frontier         Revision = C.EVMC_FRONTIER
+	Homestead        Revision = C.EVMC_HOMESTEAD
+	TangerineWhistle Revision = C.EVMC_TANGERINE_WHISTLE
+	SpuriousDragon   Revision = C.EVMC_SPURIOUS_DRAGON
+	Byzantium        Revision = C.EVMC_BYZANTIUM
+	Constantinople   Revision = C.EVMC_CONSTANTINOPLE
 )
 
 type Instance struct {
@@ -172,10 +176,12 @@ func (instance *Instance) Destroy() {
 }
 
 func (instance *Instance) Name() string {
+	// TODO: consider using C.evmc_vm_name(instance.handle)
 	return C.GoString(instance.handle.name)
 }
 
 func (instance *Instance) Version() string {
+	// TODO: consider using C.evmc_vm_version(instance.handle)
 	return C.GoString(instance.handle.version)
 }
 
@@ -199,23 +205,23 @@ func (instance *Instance) Execute(ctx HostContext, rev Revision,
 
 	ctxId := addHostContext(ctx)
 	// FIXME: Clarify passing by pointer vs passing by value.
-	d := evmcAddress(destination)
-	s := evmcAddress(sender)
-	v := evmcUint256be(value)
-	ch := evmcUint256be(codeHash)
-	r := C.execute_wrapper(instance.handle, C.int64_t(ctxId), uint32(rev), &d, &s, &v,
-		bytesPtr(input), C.size_t(len(input)), &ch, C.int64_t(gas), C.int32_t(depth), C.enum_evmc_call_kind(kind), flags,
-		bytesPtr(code), C.size_t(len(code)))
+	evmcDestination := evmcAddress(destination)
+	evmcSender := evmcAddress(sender)
+	evmcValue := evmcUint256be(value)
+	evmcCodeHash := evmcUint256be(codeHash)
+	result := C.execute_wrapper(instance.handle, C.int64_t(ctxId), uint32(rev), &evmcDestination, &evmcSender, &evmcValue,
+		bytesPtr(input), C.size_t(len(input)), &evmcCodeHash, C.int64_t(gas), C.int32_t(depth), C.enum_evmc_call_kind(kind),
+		flags, bytesPtr(code), C.size_t(len(code)))
 	removeHostContext(ctxId)
 
-	output = C.GoBytes(unsafe.Pointer(r.output_data), C.int(r.output_size))
-	gasLeft = int64(r.gas_left)
-	if r.status_code != C.EVMC_SUCCESS {
-		err = Error(r.status_code)
+	output = C.GoBytes(unsafe.Pointer(result.output_data), C.int(result.output_size))
+	gasLeft = int64(result.gas_left)
+	if result.status_code != C.EVMC_SUCCESS {
+		err = Error(result.status_code)
 	}
 
-	if r.release != nil {
-		C.evmc_release_result(&r)
+	if result.release != nil {
+		C.evmc_release_result(&result)
 	}
 
 	return output, gasLeft, err

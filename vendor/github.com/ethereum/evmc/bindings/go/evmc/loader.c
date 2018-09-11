@@ -1,10 +1,12 @@
 /* EVMC: Ethereum Client-VM Connector API.
- * Copyright 2018 Pawel Bylica.
- * Licensed under the MIT License. See the LICENSE file.
+ * Copyright 2018 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0. See the LICENSE file.
  */
 
 #include <evmc/loader.h>
+
 #include <evmc/evmc.h>
+#include <evmc/helpers.h>
 
 #include <stdint.h>
 #include <string.h>
@@ -112,6 +114,9 @@ evmc_create_fn evmc_load(const char* filename, enum evmc_loader_error_code* erro
     }
 
     if (!create_fn)
+        create_fn = DLL_GET_CREATE_FN(handle, "evmc_create");
+
+    if (!create_fn)
     {
         DLL_CLOSE(handle);
         ec = EVMC_LOADER_SYMBOL_NOT_FOUND;
@@ -123,7 +128,8 @@ exit:
     return create_fn;
 }
 
-struct evmc_instance* evmc_load_and_create(const char* filename, enum evmc_loader_error_code* error_code)
+struct evmc_instance* evmc_load_and_create(const char* filename,
+                                           enum evmc_loader_error_code* error_code)
 {
     evmc_create_fn create_fn = evmc_load(filename, error_code);
 
@@ -137,7 +143,7 @@ struct evmc_instance* evmc_load_and_create(const char* filename, enum evmc_loade
         return NULL;
     }
 
-    if (instance->abi_version != EVMC_ABI_VERSION)
+    if (!evmc_is_abi_compatible(instance))
     {
         *error_code = EVMC_LOADER_ABI_VERSION_MISMATCH;
         return NULL;

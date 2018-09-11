@@ -1,13 +1,13 @@
 /* EVMC: Ethereum Client-VM Connector API.
- * Copyright 2018 Pawel Bylica.
- * Licensed under the MIT License. See the LICENSE file.
+ * Copyright 2018 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0. See the LICENSE file.
  */
 
 #include "_cgo_export.h"
 
 #include <stdlib.h>
 
-__attribute__((visibility("hidden"))) const struct evmc_context_fn_table evmc_go_fn_table = {
+const struct evmc_context_fn_table evmc_go_fn_table = {
     (evmc_account_exists_fn)accountExists,
     (evmc_get_storage_fn)getStorage,
     (evmc_set_storage_fn)setStorage,
@@ -22,8 +22,7 @@ __attribute__((visibility("hidden"))) const struct evmc_context_fn_table evmc_go
     (evmc_emit_log_fn)emitLog,
 };
 
-__attribute__((visibility("hidden"))) void evmc_go_free_result_output(
-    const struct evmc_result* result)
+void evmc_go_free_result_output(const struct evmc_result* result)
 {
     free((void*)result->output_data);
 }

@@ -1,6 +1,6 @@
 /* EVMC: Ethereum Client-VM Connector API.
- * Copyright 2018 Pawel Bylica.
- * Licensed under the MIT License. See the LICENSE file.
+ * Copyright 2018 The EVMC Authors.
+ * Licensed under the Apache License, Version 2.0. See the LICENSE file.
  */
 
 /**
@@ -66,8 +66,9 @@ enum evmc_loader_error_code
  *   "interpreter",
  * - the name "evmc_create_" + _full name_ is checked in the library:
  *   "evmc_create_example_interpreter",
- * - the name "evmc_create_" + _short name_ is checked in the library:
+ * - then, the name "evmc_create_" + _short name_ is checked in the library:
  *   "evmc_create_interpreter".
+ * - lastly, the name "evmc_create" is checked in the library
  *
  * If the create function is found in the library, the pointer to the function is returned.
  * Otherwise, the ::EVMC_LOADER_SYMBOL_NOT_FOUND error code is signaled and NULL is returned.
@@ -98,7 +99,8 @@ evmc_create_fn evmc_load(const char* filename, enum evmc_loader_error_code* erro
  * the DLL is not going to be loaded multiple times, but the function will return new VM instance
  * each time.
  */
-struct evmc_instance* evmc_load_and_create(const char* filename, enum evmc_loader_error_code* error_code);
+struct evmc_instance* evmc_load_and_create(const char* filename,
+                                           enum evmc_loader_error_code* error_code);
 
 #if __cplusplus
 }
