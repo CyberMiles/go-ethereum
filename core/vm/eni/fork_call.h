@@ -56,18 +56,18 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
             char str[22];
             sprintf(str, "%lld", *gas);
             write(pfd[1], str, strlen(str)+1); // (with \0 would end read())
-        }else if(fid==1){// op_run
+        } else if (fid==1){// op_run
             func_run f_run = (func_run) f;
             char *retText = f_run(argsText);
             write(pfd[1], retText, strlen(retText)+1); // (with \0 would end read())
-        }else{
+        } else {
             exit(7122);
         }
         close(pfd[1]);
         exit(0);
     } else { // parent
         close(pfd[1]);
-        int nread;
+        int nread, ret_len=0, ret_cap=SIZE;
         char *ptr = (char*)ret;
         int n_iter=30;
         
@@ -75,8 +75,8 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
         tim.tv_sec  = 0;
         tim.tv_nsec = 100000000L;
 
-        while (1) {
-            nread = read(pfd[0], ptr, SIZE);
+        do {
+            nread = read(pfd[0], ptr, ret_cap-ret_len);
             if(nread==-1){
                 nanosleep(&tim , &tim2);
                 if(n_iter==0){
@@ -85,13 +85,32 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
                     n_iter--;
                 }
                 continue;
-            }else if(nread==0){ // EOF
-                wait(status);
-            }else{
+            } else {
                 ptr+= nread;
+                ret_len+= nread;
+                if(ret_cap==ret_len){
+                    ret_cap*= 2;
+                    ret = realloc(ret, ret_cap);
+                    ptr = (char*)ret + ret_len;
+                }
             }
-            if(0 != waitpid(pid, status, WNOHANG)) break;
+        } while (0 == waitpid(pid, status, WNOHANG));
+        // remainning in pipe
+        while (1){
+            nread = read(pfd[0], ptr, ret_cap-ret_len);
+            if(nread==-1 || nread==0){
+                break;
+            } else {
+                ptr+= nread;
+                ret_len+= nread;
+                if(ret_cap==ret_len){
+                    ret_cap*= 2;
+                    ret = realloc(ret, ret_cap);
+                    ptr = (char*)ret + ret_len;
+                }
+            }
         }
+
         close(pfd[0]);
 
         
@@ -107,7 +126,7 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
             int64_t *gas = (int64_t*) malloc(sizeof (int64_t));
             sscanf((char*)ret, "%lld\n", gas);
             return gas;
-        }else{
+        } else {
             return ret;
         }
     }
