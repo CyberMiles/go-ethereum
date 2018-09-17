@@ -23,6 +23,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm/eni"
+	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -76,6 +77,9 @@ type Context struct {
 	BlockNumber *big.Int       // Provides information for NUMBER
 	Time        *big.Int       // Provides information for TIME
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
+
+	// Travis database helper component
+	Umbrella *umbrella.Umbrella
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides

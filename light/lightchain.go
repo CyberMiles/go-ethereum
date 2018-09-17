@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -55,6 +56,7 @@ type LightChain struct {
 	chainHeadFeed event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
+	umbrella      *umbrella.Umbrella
 
 	mu      sync.RWMutex
 	chainmu sync.RWMutex
@@ -133,6 +135,10 @@ func (self *LightChain) addTrustedCheckpoint(cp trustedCheckpoint) {
 
 func (self *LightChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&self.procInterrupt) == 1
+}
+
+func (self *LightChain) Umbrella() *umbrella.Umbrella {
+	return self.umbrella
 }
 
 // Odr returns the ODR backend of the chain

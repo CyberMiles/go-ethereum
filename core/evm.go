@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 )
 
 // ChainContext supports retrieving headers and consensus parameters from the
@@ -33,6 +34,9 @@ type ChainContext interface {
 
 	// GetHeader returns the hash corresponding to their hash.
 	GetHeader(common.Hash, uint64) *types.Header
+
+	// Umbrella retrieves the Travis's database helper component.
+	Umbrella() *umbrella.Umbrella
 }
 
 // NewEVMContext creates a new context for use in the EVM.
@@ -55,6 +59,7 @@ func NewEVMContext(msg Message, header *types.Header, chain ChainContext, author
 		Difficulty:  new(big.Int).Set(header.Difficulty),
 		GasLimit:    header.GasLimit,
 		GasPrice:    new(big.Int).Set(msg.GasPrice()),
+		Umbrella:    chain.Umbrella(),
 	}
 }
 

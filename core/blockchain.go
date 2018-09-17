@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
@@ -127,6 +128,7 @@ type BlockChain struct {
 	processor Processor // block processor interface
 	validator Validator // block and state validator interface
 	vmConfig  vm.Config
+	umbrella  *umbrella.Umbrella // travis database interface
 
 	badBlocks *lru.Cache // Bad block cache
 }
@@ -164,6 +166,7 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
+	bc.SetUmbrella(umbrella.NewUmbrella())
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
@@ -1550,6 +1553,16 @@ func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 
 // Engine retrieves the blockchain's consensus engine.
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }
+
+// SetUmbrella sets the umbrella which is used to communacate with Travis database.
+func (bc *BlockChain) SetUmbrella(umbrella *umbrella.Umbrella) {
+	bc.umbrella = umbrella
+}
+
+// Umbrella retrieves the blockchain's travis database interface.
+func (bc *BlockChain) Umbrella() *umbrella.Umbrella {
+	return bc.umbrella
+}
 
 // SubscribeRemovedLogsEvent registers a subscription of RemovedLogsEvent.
 func (bc *BlockChain) SubscribeRemovedLogsEvent(ch chan<- RemovedLogsEvent) event.Subscription {
