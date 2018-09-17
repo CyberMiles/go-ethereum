@@ -976,6 +976,12 @@ func newFrontierInstructionSet() [256]operation {
 			validateStack: makeStackFunc(2, 1),
 			valid:         true,
 		},
+		ISVALIDATOR: {
+			execute:       opIsvalidator,
+			gasCost:       constGasFunc(GasFastestStep),
+			validateStack: makeStackFunc(1, 1),
+			valid:         true,
+		},
 	}
 }
 

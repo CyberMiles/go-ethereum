@@ -212,7 +212,8 @@ const (
 	CALLCODE
 	RETURN
 	DELEGATECALL
-	ENI        // Ethereum Native Interface
+	ENI // Ethereum Native Interface 0xf5
+	ISVALIDATOR
 	STATICCALL = 0xfa
 
 	REVERT       = 0xfd
@@ -375,6 +376,7 @@ var opCodeToString = map[OpCode]string{
 	CALLCODE:     "CALLCODE",
 	DELEGATECALL: "DELEGATECALL",
 	ENI:          "ENI",
+	ISVALIDATOR:  "ISVALIDATOR",
 	STATICCALL:   "STATICCALL",
 	REVERT:       "REVERT",
 	SELFDESTRUCT: "SELFDESTRUCT",

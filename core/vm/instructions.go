@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -772,6 +773,21 @@ func opStaticCall(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stac
 
 	evm.interpreter.intPool.put(addr, inOffset, inSize, retOffset, retSize)
 	return ret, nil
+}
+
+func opIsvalidator(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	addr := stack.peek()
+	fromAddr := common.BigToAddress(addr)
+	isValidator := uint64(0)
+	validators := interpreter.evm.Umbrella.ValidatorManager.GetValidators()
+	for validator := range validators {
+		if bytes.Equal(validator.Address.Bytes(), fromAddr.Bytes()) {
+			isValidator = uint64(1)
+			break
+		}
+	}
+	addr.SetUint64(isValidator)
+	return nil, nil
 }
 
 func opENI(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
