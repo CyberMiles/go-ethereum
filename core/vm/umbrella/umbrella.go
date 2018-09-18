@@ -5,7 +5,7 @@ import (
 )
 
 type Umbrella interface {
-    GetValidators() []common.Address
-    EmitScheduleTx(ScheduleTx)
-    GetDueTxs() []ScheduleTx
+	GetValidators() []common.Address
+	EmitScheduleTx(ScheduleTx)
+	GetDueTxs() []ScheduleTx
 }

@@ -9,4 +9,3 @@ type ScheduleTx struct {
 	Receiver common.Address
 	TxData   []byte
 }
-

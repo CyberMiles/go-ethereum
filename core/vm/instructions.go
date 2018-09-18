@@ -780,7 +780,7 @@ func opIsvalidator(pc *uint64, interpreter *EVMInterpreter, contract *Contract, 
 	fromAddr := common.BigToAddress(addr)
 	isValidator := uint64(0)
 	validators := interpreter.evm.Umbrella.GetValidators()
-	for i, _ := range validators {
+	for i := range validators {
 		if bytes.Equal(validators[i].Bytes(), fromAddr.Bytes()) {
 			isValidator = uint64(1)
 			break
