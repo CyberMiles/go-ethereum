@@ -128,7 +128,7 @@ type BlockChain struct {
 	processor Processor // block processor interface
 	validator Validator // block and state validator interface
 	vmConfig  vm.Config
-	umbrella  *umbrella.Umbrella // travis database interface
+	umbrella  umbrella.Umbrella // travis database interface
 
 	badBlocks *lru.Cache // Bad block cache
 }
@@ -166,7 +166,6 @@ func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, chainConfig *par
 	}
 	bc.SetValidator(NewBlockValidator(chainConfig, bc, engine))
 	bc.SetProcessor(NewStateProcessor(chainConfig, bc, engine))
-	bc.SetUmbrella(umbrella.NewUmbrella())
 
 	var err error
 	bc.hc, err = NewHeaderChain(db, chainConfig, engine, bc.getProcInterrupt)
@@ -1555,12 +1554,12 @@ func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 func (bc *BlockChain) Engine() consensus.Engine { return bc.engine }
 
 // SetUmbrella sets the umbrella which is used to communacate with Travis database.
-func (bc *BlockChain) SetUmbrella(umbrella *umbrella.Umbrella) {
+func (bc *BlockChain) SetUmbrella(umbrella umbrella.Umbrella) {
 	bc.umbrella = umbrella
 }
 
 // Umbrella retrieves the blockchain's travis database interface.
-func (bc *BlockChain) Umbrella() *umbrella.Umbrella {
+func (bc *BlockChain) Umbrella() umbrella.Umbrella {
 	return bc.umbrella
 }
 

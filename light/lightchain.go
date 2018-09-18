@@ -56,7 +56,7 @@ type LightChain struct {
 	chainHeadFeed event.Feed
 	scope         event.SubscriptionScope
 	genesisBlock  *types.Block
-	umbrella      *umbrella.Umbrella
+	umbrella      umbrella.Umbrella
 
 	mu      sync.RWMutex
 	chainmu sync.RWMutex
@@ -137,7 +137,7 @@ func (self *LightChain) getProcInterrupt() bool {
 	return atomic.LoadInt32(&self.procInterrupt) == 1
 }
 
-func (self *LightChain) Umbrella() *umbrella.Umbrella {
+func (self *LightChain) Umbrella() umbrella.Umbrella {
 	return self.umbrella
 }
 

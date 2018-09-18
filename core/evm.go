@@ -36,7 +36,7 @@ type ChainContext interface {
 	GetHeader(common.Hash, uint64) *types.Header
 
 	// Umbrella retrieves the Travis's database helper component.
-	Umbrella() *umbrella.Umbrella
+	Umbrella() umbrella.Umbrella
 }
 
 // NewEVMContext creates a new context for use in the EVM.

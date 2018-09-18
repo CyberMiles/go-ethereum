@@ -79,7 +79,7 @@ type Context struct {
 	Difficulty  *big.Int       // Provides information for DIFFICULTY
 
 	// Travis database helper component
-	Umbrella *umbrella.Umbrella
+	Umbrella umbrella.Umbrella
 }
 
 // EVM is the Ethereum Virtual Machine base object and provides
@@ -115,7 +115,7 @@ type EVM struct {
 	// ethereum native interface handler
 	eni *eni.ENI
 	// umbrella is a hendler to communacate with Travis database
-	umbrella *umbrella.Umbrella
+	umbrella umbrella.Umbrella
 	// callGasTemp holds the gas available for the current call. This is needed because the
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
