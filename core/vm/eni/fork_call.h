@@ -59,7 +59,10 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
         } else if (fid==1){// op_run
             func_run f_run = (func_run) f;
             char *retText = f_run(argsText);
-            write(pfd[1], retText, strlen(retText)+1); // (with \0 would end read())
+            if (retText == NULL)
+                write(pfd[1], "\0", 1);
+            else
+                write(pfd[1], retText, strlen(retText)+1); // (with \0 would end read())
         } else {
             exit(7122);
         }
