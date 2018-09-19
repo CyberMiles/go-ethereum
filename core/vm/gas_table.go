@@ -465,5 +465,5 @@ func gasENI(gt params.GasTable, evm *EVM, contract *Contract, stack *Stack, mem 
 	if err != nil {
 		return 0, err
 	}
-	return gas, nil
+	return 400 + gas, nil
 }
