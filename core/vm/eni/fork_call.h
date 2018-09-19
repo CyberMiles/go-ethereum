@@ -3,10 +3,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <time.h>
+#include <inttypes.h>
 
 #define SIZE 1024
 
@@ -54,7 +56,7 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
             func_gas f_gas= (func_gas) f;
             int64_t* gas = f_gas(argsText);
             char str[22];
-            sprintf(str, "%lld", *gas);
+            sprintf(str, "%" PRId64, *gas);
             write(pfd[1], str, strlen(str)+1); // (with \0 would end read())
         } else if (fid==1){// op_run
             func_run f_run = (func_run) f;
@@ -127,7 +129,7 @@ void* fork_call(int fid, void* f, char* argsText, int *status)
         }
         if(fid==0){
             int64_t *gas = (int64_t*) malloc(sizeof (int64_t));
-            sscanf((char*)ret, "%lld\n", gas);
+            sscanf((char*)ret, "%" PRId64 "\n", gas);
             return gas;
         } else {
             return ret;
