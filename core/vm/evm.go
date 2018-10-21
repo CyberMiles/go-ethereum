@@ -18,8 +18,6 @@ package vm
 
 import (
 	"math/big"
-	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -167,20 +165,10 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 
 	if chainConfig.IsEWASM(ctx.BlockNumber) {
 		if vmConfig.EWASMInterpreter != "" {
-			extIntOpts := strings.Split(vmConfig.EWASMInterpreter, ":")
-			path := extIntOpts[0]
-			options := []string{}
-			if len(extIntOpts) > 1 {
-				options = extIntOpts[1:]
-			}
-		 	evm.interpreters = append(evm.interpreters, NewEVMC(path, options, evm))
+			evm.interpreters = append(evm.interpreters, NewEVMC(vmConfig.EWASMInterpreter, evm))
 		} else {
-			panic("No supported ewasm interpreter yet.")
+			panic("The default ewasm interpreter not supported yet.")
 		}
-	}
-
-	if len(vmConfig.EVMInterpreter) != 0 || len(os.Getenv("EVMC_PATH")) != 0 {
-		evm.interpreters = append(evm.interpreters, NewEVMC(vmConfig.EVMInterpreter, nil, evm))
 	}
 
 	// vmConfig.EVMInterpreter will be used by EVM-C, it won't be checked here

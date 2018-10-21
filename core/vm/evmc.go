@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-	"os"
 	"strings"
 	"sync"
 
@@ -39,33 +38,30 @@ type EVMC struct {
 
 var (
 	createMu     sync.Mutex
+	evmcConfig   string // The configuration the instance was created with.
 	evmcInstance *evmc.Instance
 )
 
-func createVM(path string, options []string) *evmc.Instance {
+func createVM(config string) *evmc.Instance {
 	createMu.Lock()
 	defer createMu.Unlock()
 
 	if evmcInstance == nil {
-		vmPath := os.Getenv("EVMC_PATH")
-		if len(vmPath) == 0 {
-			vmPath = path
-		}
-		if len(vmPath) == 0 {
-			panic("EVMC VM path not provided, set EVMC_PATH environment variable or --vm.evm option")
+		options := strings.Split(config, ",")
+		path := options[0]
+
+		if path == "" {
+			panic("EVMC VM path not provided, set --vm.(evm|ewasm)=/path/to/vm")
 		}
 
 		var err error
-		evmcInstance, err = evmc.Load(vmPath)
+		evmcInstance, err = evmc.Load(path)
 		if err != nil {
 			panic(err.Error())
 		}
-		log.Info("EVMC VM loaded", "name", evmcInstance.Name(), "version", evmcInstance.Version(), "path", vmPath)
+		log.Info("EVMC VM loaded", "name", evmcInstance.Name(), "version", evmcInstance.Version(), "path", path)
 
-		opts := strings.Split(os.Getenv("EVMC_OPTIONS"), " ")
-		opts = append(opts, options...)
-
-		for _, option := range opts {
+		for _, option := range options[1:] {
 			if idx := strings.Index(option, "="); idx >= 0 {
 				name := option[:idx]
 				value := option[idx+1:]
@@ -77,12 +73,15 @@ func createVM(path string, options []string) *evmc.Instance {
 				}
 			}
 		}
+		evmcConfig = config // Remember the config.
+	} else if evmcConfig != config {
+		log.Error("New EVMC VM requested", "newconfig", config, "oldconfig", evmcConfig)
 	}
 	return evmcInstance
 }
 
-func NewEVMC(path string, options []string, env *EVM) *EVMC {
-	return &EVMC{createVM(path, options), env, false}
+func NewEVMC(options string, env *EVM) *EVMC {
+	return &EVMC{createVM(options), env, false}
 }
 
 // Implements evmc.HostContext interface.
@@ -313,7 +312,7 @@ func (evm *EVMC) Run(contract *Contract, input []byte, readOnly bool) (ret []byt
 func (evm *EVMC) CanRun(code []byte) bool {
 	cap := evmc.CapabilityEVM1
 	wasmPreamble := []byte("\x00asm\x01\x00\x00\x00")
-	if (bytes.HasPrefix(code, wasmPreamble)) {
+	if bytes.HasPrefix(code, wasmPreamble) {
 		cap = evmc.CapabilityEWASM
 	}
 	// FIXME: Optimize. Access capabilities once.
