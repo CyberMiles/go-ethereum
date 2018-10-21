@@ -73,6 +73,11 @@ func createVM(config string) *evmc.Instance {
 				}
 			}
 		}
+
+		evm1Cap := evmcInstance.HasCapability(evmc.CapabilityEVM1)
+		ewasmCap := evmcInstance.HasCapability(evmc.CapabilityEWASM)
+		log.Info("EVMC VM capabilities", "evm1", evm1Cap, "ewasm", ewasmCap)
+
 		evmcConfig = config // Remember the config.
 	} else if evmcConfig != config {
 		log.Error("New EVMC VM requested", "newconfig", config, "oldconfig", evmcConfig)
