@@ -107,10 +107,10 @@
 		{
 			"checksumSHA1": "HxlAMyHDmEEDsOIlULQD2HPoN40=",
 			"path": "github.com/ethereum/evmc/bindings/go/evmc",
-			"revision": "3b3aab4f7720f80ba0b989da88b60907c2a8f733",
-			"revisionTime": "2018-10-18T15:29:18Z",
-			"version": "v6",
-			"versionExact": "v6"
+			"revision": "354ba6f540655649e081fb455e21998186bf5576",
+			"revisionTime": "2018-10-24T21:20:07Z",
+			"version": "=v6.0.0",
+			"versionExact": "v6.0.0"
 		},
 		{
 			"checksumSHA1": "7oFpbmDfGobwKsFLIf6wMUvVoKw=",
