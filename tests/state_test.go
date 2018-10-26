@@ -18,6 +18,7 @@ package tests
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"reflect"
 	"testing"
@@ -68,8 +69,15 @@ func TestState(t *testing.T) {
 // Transactions with gasLimit above this value will not get a VM trace on failure.
 const traceErrorLimit = 400000
 
+var testVMConfig = func() vm.Config {
+	vmconfig := vm.Config{}
+	flag.StringVar(&vmconfig.EVMInterpreter, "vm.evm", "", "External EVM configuration (default = built-in interpreter)")
+	flag.Parse()
+	return vmconfig
+}()
+
 func withTrace(t *testing.T, gasLimit uint64, test func(vm.Config) error) {
-	err := test(vm.Config{})
+	err := test(testVMConfig)
 	if err == nil {
 		return
 	}
