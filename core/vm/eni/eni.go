@@ -69,10 +69,12 @@ func (eni *ENI) InitENI(eniFunction string, argsText string) (err error) {
 // Gas returns gas of current ENI operation
 // a process is forked to achieve fault tolerance
 func (eni *ENI) Gas() (uint64, error) {
-	status := C.int(87)
+	status := C.int(C.ENI_FAILURE)
 	gas := uint64(C.fork_gas(eni.gasFunc, C.CString(eni.argsText), &status))
-	if int(status) != 0 {
-		return gas, errors.New("ENI " + eni.opName + " gas error" + ", status=" + fmt.Sprintf("%d", int(status)))
+	if int(status) != C.ENI_SUCCESS {
+		errMsg := C.eni_error_msg(status)
+		fmt.Printf("ENI error: %s\n", C.GoString(errMsg))
+		return gas, errors.New("ENI " + eni.opName + " gas error, msg = " + C.GoString(errMsg))
 	}
 	return gas, nil
 }
@@ -81,13 +83,15 @@ func (eni *ENI) Gas() (uint64, error) {
 // a process is forked to achieve fault tolerance
 func (eni *ENI) ExecuteENI() (string, error) {
 	// Run ENI function.
-	status := C.int(87)
+	status := C.int(C.ENI_FAILURE)
 	retCString := C.fork_run(eni.runFunc, C.CString(eni.argsText), &status)
 	defer C.free(unsafe.Pointer(retCString))
 	retGoString := C.GoString(retCString)
 
-	if int(status) != 0 {
-		return retGoString, errors.New("ENI " + eni.opName + " run error" + ", status=" + fmt.Sprintf("%d", int(status)))
+	if int(status) != C.ENI_SUCCESS {
+		errMsg := C.eni_error_msg(status)
+		fmt.Printf("ENI error: %s\n", C.GoString(errMsg))
+		return retGoString, errors.New("ENI " + eni.opName + " run error, msg = " + C.GoString(errMsg))
 	}
 	return retGoString, nil
 }
@@ -133,6 +137,7 @@ func getEniFunctions() (map[string]string, error) {
 		}
 
 		for _, symbol := range symbols {
+			// TODO: assert ( `symbol.Name` does not exist in `functions` )
 			functions[symbol.Name] = lib
 		}
 	}
