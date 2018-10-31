@@ -982,6 +982,30 @@ func newFrontierInstructionSet() [256]operation {
 			validateStack: makeStackFunc(1, 1),
 			valid:         true,
 		},
+		FMUL: {
+			execute:       opFmul,
+			gasCost:       constGasFunc(GasMidStep),
+			validateStack: makeStackFunc(3, 1),
+			valid:         true,
+		},
+		SFMUL: {
+			execute:       opSfmul,
+			gasCost:       constGasFunc(GasMidStep),
+			validateStack: makeStackFunc(3, 1),
+			valid:         true,
+		},
+		FDIV: {
+			execute:       opFdiv,
+			gasCost:       constGasFunc(GasMidStep),
+			validateStack: makeStackFunc(3, 1),
+			valid:         true,
+		},
+		SFDIV: {
+			execute:       opSfdiv,
+			gasCost:       constGasFunc(GasMidStep),
+			validateStack: makeStackFunc(3, 1),
+			valid:         true,
+		},
 	}
 }
 

@@ -961,6 +961,80 @@ func opUmul(pc *uint64, evm *EVM, contract *Contract, memory *Memory, stack *Sta
 	return nil, nil
 }
 
+// Unsigned fixed point number mul with overflow checking
+func opFmul(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	x, y, n := stack.pop(), stack.pop(), stack.pop()
+	z := big.NewInt(0)
+	base10 := big.NewInt(10)
+	z.Mul(x, y)
+	z.Div(z, base10.Exp(base10, n, nil))
+
+	if !math.InU256(z) {
+		return nil, errors.New("FMUL overflow")
+	}
+
+	stack.push(math.U256(z))
+
+	return nil, nil
+}
+
+// Signed fixed point number mul with overflow checking
+func opSfmul(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	x, y, n := stack.pop(), stack.pop(), stack.pop()
+	x = math.S256(x)
+	y = math.S256(y)
+	n = math.S256(n)
+
+	z := big.NewInt(0)
+	base10 := big.NewInt(10)
+	z.Mul(x, y)
+	z.Div(z, base10.Exp(base10, n, nil))
+	if !math.InS256(z) {
+		return nil, errors.New("FMUL overflow")
+	}
+
+	stack.push(math.SignAbsTo256Twos(z))
+
+	return nil, nil
+}
+
+// Unsigned fixed point number div with overflow checking
+func opFdiv(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	x, y, n := stack.pop(), stack.pop(), stack.pop()
+	z := big.NewInt(0)
+	base10 := big.NewInt(10)
+	z.Mul(x, base10.Exp(base10, n, nil))
+	z.Div(z, y)
+
+	if !math.InU256(z) {
+		return nil, errors.New("FDIV overflow")
+	}
+
+	stack.push(math.U256(z))
+
+	return nil, nil
+}
+
+// Signed fixed point number div with overflow checking
+func opSfdiv(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	x, y, n := stack.pop(), stack.pop(), stack.pop()
+	x = math.S256(x)
+	y = math.S256(y)
+	n = math.S256(n)
+
+	z := big.NewInt(0)
+	base10 := big.NewInt(10)
+	z.Mul(x, base10.Exp(base10, n, nil))
+	z.Div(z, y)
+	if !math.InS256(z) {
+		return nil, errors.New("SFDIV overflow")
+	}
+
+	stack.push(math.SignAbsTo256Twos(z))
+
+	return nil, nil
+}
+
 // following functions are used by the instruction jump  table
 
 // make log instruction function

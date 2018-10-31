@@ -74,6 +74,11 @@ const (
 	SAR
 
 	SHA3 = 0x20
+
+	FMUL  = 0x2a
+	SFMUL = 0x2b
+	FDIV  = 0x2c
+	SFDIV = 0x2d
 )
 
 // 0x30 range - closure state.
