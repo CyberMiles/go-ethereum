@@ -35,7 +35,7 @@ var Version = func() string {
 // VersionWithMeta holds the textual version string including the metadata.
 var VersionWithMeta = func() string {
 	v := Version
-	v += "-evmc.6.0.0"
+	v += "-evmc.6.0.0-1"
 	if VersionMeta != "" {
 		v += "-" + VersionMeta
 	}
