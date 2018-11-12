@@ -1,3 +1,9 @@
+# Geth with ewasm support
+
+The fork of Geth (go-ethereum) with ewasm and EVMC support.
+Used for ewasm testnet, see https://github.com/ewasm/testnet for more information.
+
+
 ## Go Ethereum
 
 Forked from [tendermint/go-ethereum](https://github.com/tendermint/go-ethereum) for [Lity](https://github.com/cybermiles/lity).
