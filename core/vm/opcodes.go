@@ -260,6 +260,12 @@ var opCodeToString = map[OpCode]string{
 	// 0x20 range - crypto.
 	SHA3: "SHA3",
 
+	// 0x2a range - fixed point.
+	FMUL:  "FMUL",
+	SFMUL: "SFMUL",
+	FDIV:  "FDIV",
+	SFDIV: "SFDIV",
+
 	// 0x30 range - closure state.
 	ADDRESS:        "ADDRESS",
 	BALANCE:        "BALANCE",
@@ -432,6 +438,10 @@ var stringToOp = map[string]OpCode{
 	"ADDMOD":         ADDMOD,
 	"MULMOD":         MULMOD,
 	"SHA3":           SHA3,
+	"FMUL":           FMUL,
+	"SFMUL":          SFMUL,
+	"FDIV":           FDIV,
+	"SFDIV":          SFDIV,
 	"ADDRESS":        ADDRESS,
 	"BALANCE":        BALANCE,
 	"ORIGIN":         ORIGIN,
