@@ -990,7 +990,7 @@ func opSfmul(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 	z.Mul(x, y)
 	z.Div(z, base10.Exp(base10, n, nil))
 	if !math.InS256(z) {
-		return nil, errors.New("FMUL overflow")
+		return nil, errors.New("SFMUL overflow")
 	}
 
 	stack.push(math.SignAbsTo256Twos(z))
