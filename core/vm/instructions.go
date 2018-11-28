@@ -983,7 +983,6 @@ func opSfmul(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 	x, y, n := stack.pop(), stack.pop(), stack.pop()
 	x = math.S256(x)
 	y = math.S256(y)
-	n = math.S256(n)
 
 	z := big.NewInt(0)
 	base10 := big.NewInt(10)
@@ -1020,7 +1019,6 @@ func opSfdiv(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory
 	x, y, n := stack.pop(), stack.pop(), stack.pop()
 	x = math.S256(x)
 	y = math.S256(y)
-	n = math.S256(n)
 
 	z := big.NewInt(0)
 	base10 := big.NewInt(10)
