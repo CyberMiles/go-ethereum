@@ -140,10 +140,21 @@ eni_return_data fork_call(
     }
 
     int child_status;
-    if (waitpid(pid, &child_status, WNOHANG) == -1) {
-        *status = ENI_FAILURE;
-        free(child_exe_result);
-        return NULL;
+    while (true) {
+        pid_t waitpid_result = waitpid(pid, &child_status, WNOHANG);
+        if (waitpid_result == -1) {
+            *status = ENI_FAILURE;
+            free(child_exe_result);
+            return NULL;
+        }
+        else if (waitpid_result == 0) {
+            // On some systems, waitpid can temporary return 0 even if OS already closed
+            // file descriptor opened by child process.
+            fprintf(stderr, "ENI Warning: Child not fully terminated yet, retrying...\n");
+        }
+        else {
+            break;
+        }
     }
 
     if (WIFEXITED(child_status)) {
