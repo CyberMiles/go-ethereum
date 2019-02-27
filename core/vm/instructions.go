@@ -18,6 +18,7 @@ package vm
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -789,6 +790,32 @@ func opIsvalidator(pc *uint64, interpreter *EVMInterpreter, contract *Contract, 
 		}
 	}
 	addr.SetUint64(isValidator)
+	return nil, nil
+}
+
+func opFreeGas(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	interpreter.evm.SetFreeGas(true)
+	return nil, nil
+}
+
+func opRand(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	nonce := interpreter.evm.StateDB.GetNonce(interpreter.evm.Origin)
+	nonceBuf := make([]byte, binary.MaxVarintLen64)
+	nonceLen := binary.PutUvarint(nonceBuf, nonce)
+
+	codeHash := interpreter.evm.StateDB.GetCodeHash(contract.Address())
+	randomSeed := interpreter.evm.Difficulty.Bytes()
+
+	offset := interpreter.evm.IncreaseRandomNumberCounter()
+	offsetBuf := make([]byte, binary.MaxVarintLen64)
+	offsetLen := binary.PutUvarint(offsetBuf, offset)
+	// random number = Keccak256(
+	/// randomSeed, from the current block header
+	/// nonce, from the current transaction
+	/// codeHash, contract's code hash from StateDB
+	/// offset, random number counter)
+	hash := crypto.Keccak256(randomSeed, nonceBuf[:nonceLen], codeHash[:], offsetBuf[:offsetLen])
+	stack.push(new(big.Int).SetBytes(hash))
 	return nil, nil
 }
 

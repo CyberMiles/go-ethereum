@@ -28,7 +28,8 @@ import (
 )
 
 var (
-	errInsufficientBalanceForGas = errors.New("insufficient balance to pay for gas")
+	errInsufficientBalanceForGas             = errors.New("insufficient balance to pay for gas")
+	errInsufficientContractBalanceForFreeGas = errors.New("insufficient contract balance to pay for gas")
 )
 
 /*
@@ -151,6 +152,32 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
+func (st *StateTransition) costContractGas() error {
+	// Apply refund counter, capped to half of the used gas.
+	refund := st.gasUsed() / 2
+	if refund > st.state.GetRefund() {
+		refund = st.state.GetRefund()
+	}
+	st.gas += refund
+
+	usedGas := st.initialGas - st.gas
+	realcost := new(big.Int).Mul(new(big.Int).SetUint64(usedGas), st.gasPrice)
+	if st.state.GetBalance(*st.msg.To()).Cmp(realcost) < 0 {
+		return errInsufficientContractBalanceForFreeGas
+	}
+
+	// Consume gas from contract itself
+	st.state.SubBalance(*st.msg.To(), realcost)
+	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
+	// Return gas to message sender
+	st.state.AddBalance(st.msg.From(), remaining)
+
+	// Also return remaining gas to the block gas counter so it is
+	// available for the next transaction.
+	st.gp.AddGas(st.gas)
+	return nil
+}
+
 func (st *StateTransition) buyGas() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
@@ -207,6 +234,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+	evm.SetFreeGas(false)
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {
@@ -223,7 +251,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
-	st.refundGas()
+	if evm.IsFreeGas() {
+		consumeErr := st.costContractGas()
+		if consumeErr != nil {
+			st.refundGas()
+		}
+	} else {
+		st.refundGas()
+	}
+	// fee for miner
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
 
 	return ret, st.gasUsed(), vmerr != nil, err

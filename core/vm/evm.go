@@ -120,23 +120,53 @@ type EVM struct {
 	// available gas is calculated in gasCall* according to the 63/64 rule and later
 	// applied in opCall*.
 	callGasTemp uint64
+	// freegas flag
+	// NOTE: must be set atomically
+	freegas int32
+	// random number counter
+	randomNumberCounter uint64
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmConfig Config) *EVM {
 	evm := &EVM{
-		Context:     ctx,
-		StateDB:     statedb,
-		vmConfig:    vmConfig,
-		chainConfig: chainConfig,
-		chainRules:  chainConfig.Rules(ctx.BlockNumber),
-		eni:         eni.NewENI(),
-		umbrella:    ctx.Umbrella,
+		Context:             ctx,
+		StateDB:             statedb,
+		vmConfig:            vmConfig,
+		chainConfig:         chainConfig,
+		chainRules:          chainConfig.Rules(ctx.BlockNumber),
+		eni:                 eni.NewENI(),
+		umbrella:            ctx.Umbrella,
+		freegas:             0,
+		randomNumberCounter: 0,
 	}
 
 	evm.interpreter = NewInterpreter(evm, vmConfig)
 	return evm
+}
+
+// Set the flag of freegas method
+func (evm *EVM) SetFreeGas(flag bool) {
+	isFreeGas := int32(0)
+	if flag {
+		isFreeGas = int32(1)
+	}
+	atomic.StoreInt32(&evm.freegas, isFreeGas)
+}
+
+// Get the flag of freegas
+func (evm *EVM) IsFreeGas() bool {
+	if evm.freegas == 0 {
+		return false
+	}
+	return true
+}
+
+// Increase random number counter
+func (evm *EVM) IncreaseRandomNumberCounter() uint64 {
+	evm.randomNumberCounter += 1
+	return evm.randomNumberCounter
 }
 
 // Cancel cancels any running EVM operation. This may be called concurrently and

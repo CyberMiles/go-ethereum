@@ -220,6 +220,8 @@ const (
 	ENI // Ethereum Native Interface 0xf5
 	ISVALIDATOR
 	SCHEDULE
+	FREEGAS
+	RAND
 	STATICCALL = 0xfa
 
 	REVERT       = 0xfd
@@ -390,6 +392,8 @@ var opCodeToString = map[OpCode]string{
 	ENI:          "ENI",
 	ISVALIDATOR:  "ISVALIDATOR",
 	SCHEDULE:     "SCHEDULE",
+	FREEGAS:      "FREEGAS",
+	RAND:         "RAND",
 	STATICCALL:   "STATICCALL",
 	REVERT:       "REVERT",
 	SELFDESTRUCT: "SELFDESTRUCT",
@@ -555,6 +559,10 @@ var stringToOp = map[string]OpCode{
 	"REVERT":         REVERT,
 	"SELFDESTRUCT":   SELFDESTRUCT,
 	"ENI":            ENI,
+	"ISVALIDATOR":    ISVALIDATOR,
+	"SCHEDULE":       SCHEDULE,
+	"FREEGAS":        FREEGAS,
+	"RAND":           RAND,
 	"SADD":           SADD,
 	"SSUB":           SSUB,
 	"SMUL":           SMUL,
