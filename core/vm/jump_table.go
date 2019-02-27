@@ -1021,7 +1021,7 @@ func newFrontierInstructionSet() [256]operation {
 		RAND: {
 			execute:       opRand,
 			gasCost:       constGasFunc(GasFastStep),
-			validateStack: makeStackFunc(0, 0),
+			validateStack: makeStackFunc(0, 1),
 			valid:         true,
 		},
 	}
