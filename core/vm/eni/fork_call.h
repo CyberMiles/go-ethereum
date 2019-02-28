@@ -195,7 +195,8 @@ int set_up_sandbox(int pipefd) {
         // FD_SETSIZE should equal to 1024 and checking the status of all FDs should be an acceptable impl
         fprintf(stderr, "ENI Warning: FD_SETSIZE=%d, which is abnormally big\n", FD_SETSIZE);
     }
-    for (int i = 0 ; i != FD_SETSIZE ; i++) {
+    int i = 0;
+    for (i = 0 ; i != FD_SETSIZE ; i++) {
         if (i == pipefd) {
             // we will use this file descriptor to communicate with parent process
             assert(fcntl(i, F_GETFL) != -1);
