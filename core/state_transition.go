@@ -153,24 +153,16 @@ func (st *StateTransition) useGas(amount uint64) error {
 }
 
 func (st *StateTransition) costContractGas() error {
-	// Apply refund counter, capped to half of the used gas.
-	refund := st.gasUsed() / 2
-	if refund > st.state.GetRefund() {
-		refund = st.state.GetRefund()
-	}
-	st.gas += refund
-
-	usedGas := st.initialGas - st.gas
-	realcost := new(big.Int).Mul(new(big.Int).SetUint64(usedGas), st.gasPrice)
+	realcost := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
 	if st.state.GetBalance(*st.msg.To()).Cmp(realcost) < 0 {
 		return errInsufficientContractBalanceForFreeGas
 	}
 
 	// Consume gas from contract itself
 	st.state.SubBalance(*st.msg.To(), realcost)
-	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 	// Return gas to message sender
-	st.state.AddBalance(st.msg.From(), remaining)
+	returnGas := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	st.state.AddBalance(st.msg.From(), returnGas)
 
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
@@ -178,7 +170,7 @@ func (st *StateTransition) costContractGas() error {
 	return nil
 }
 
-func (st *StateTransition) buyGas() error {
+func (st *StateTransition) buyGasFromSender() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
@@ -203,14 +195,21 @@ func (st *StateTransition) preCheck() error {
 			return ErrNonceTooLow
 		}
 	}
-	return st.buyGas()
+	return nil
 }
 
 // TransitionDb will transition the state by applying the current message and
 // returning the result including the the used gas. It returns an error if it
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
+	// Check the nonce of this transaction is correct.
 	if err = st.preCheck(); err != nil {
+		return
+	}
+	// Reserve Gas from the Sender for this transaction.
+	// The default action will cost gas from the sender.
+	// So we need to make sure if the sender's gas is enough.
+	if err = st.buyGasFromSender(); err != nil {
 		return
 	}
 	msg := st.msg
@@ -251,6 +250,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
+	st.applyRefundGasCounter()
 	if evm.IsFreeGas() {
 		consumeErr := st.costContractGas()
 		if consumeErr != nil {
@@ -265,14 +265,16 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 
-func (st *StateTransition) refundGas() {
+func (st *StateTransition) applyRefundGasCounter() {
 	// Apply refund counter, capped to half of the used gas.
 	refund := st.gasUsed() / 2
 	if refund > st.state.GetRefund() {
 		refund = st.state.GetRefund()
 	}
 	st.gas += refund
+}
 
+func (st *StateTransition) refundGas() {
 	// Return ETH for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 	st.state.AddBalance(st.msg.From(), remaining)
