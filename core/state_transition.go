@@ -160,9 +160,6 @@ func (st *StateTransition) costContractGas() error {
 
 	// Consume gas from contract itself
 	st.state.SubBalance(*st.msg.To(), realcost)
-	// Return gas to message sender
-	returnGas := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	st.state.AddBalance(st.msg.From(), returnGas)
 
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
@@ -232,9 +229,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		return nil, 0, false, errInsufficientBalanceForGas
 	}
 
-	// Reserve Gas from the Sender for this transaction.
-	// The default action will cost gas from the sender.
-	// So we need to make sure if the sender's gas is enough.
+	// Reserve Virtual Gas for this transaction.
 	if err = st.buyVirtualGas(); err != nil {
 		return nil, 0, false, err
 	}
