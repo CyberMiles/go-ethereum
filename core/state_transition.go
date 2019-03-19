@@ -170,17 +170,37 @@ func (st *StateTransition) costContractGas() error {
 	return nil
 }
 
-func (st *StateTransition) buyGasFromSender() error {
+func (st *StateTransition) checkGasFromSender() bool {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
-		return errInsufficientBalanceForGas
+		return false
 	}
+	return true
+}
+
+func (st *StateTransition) checkGasFromContract() bool {
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if st.state.GetBalance(*st.msg.To()).Cmp(mgval) < 0 {
+		return false
+	}
+	return true
+}
+
+func (st *StateTransition) buyVirtualGas() error {
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
 	}
 	st.gas += st.msg.Gas()
 
 	st.initialGas = st.msg.Gas()
+	return nil
+}
+
+func (st *StateTransition) buyGasFromSender() error {
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
+	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
+		return errInsufficientBalanceForGas
+	}
 	st.state.SubBalance(st.msg.From(), mgval)
 	return nil
 }
@@ -206,11 +226,17 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if err = st.preCheck(); err != nil {
 		return
 	}
+
+	// Check if the sender and contract have enough balance.
+	if !st.checkGasFromSender() && !st.checkGasFromContract() {
+		return nil, 0, false, errInsufficientBalanceForGas
+	}
+
 	// Reserve Gas from the Sender for this transaction.
 	// The default action will cost gas from the sender.
 	// So we need to make sure if the sender's gas is enough.
-	if err = st.buyGasFromSender(); err != nil {
-		return
+	if err = st.buyVirtualGas(); err != nil {
+		return nil, 0, false, err
 	}
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
@@ -252,11 +278,16 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	}
 	st.applyRefundGasCounter()
 	if evm.IsFreeGas() {
-		consumeErr := st.costContractGas()
-		if consumeErr != nil {
+		if consumeErr := st.costContractGas(); consumeErr != nil {
+			if err = st.buyGasFromSender(); err != nil {
+				return nil, 0, false, err
+			}
 			st.refundGas()
 		}
 	} else {
+		if err = st.buyGasFromSender(); err != nil {
+			return nil, 0, false, err
+		}
 		st.refundGas()
 	}
 	// fee for miner
