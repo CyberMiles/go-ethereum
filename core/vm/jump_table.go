@@ -954,7 +954,7 @@ func newFrontierInstructionSet() [256]operation {
 		ENI: {
 			execute:       opENI,
 			gasCost:       gasENI,
-			validateStack: makeStackFunc(0, 0),
+			validateStack: makeStackFunc(3, 1),
 			init:          initENI,
 			valid:         true,
 		},
