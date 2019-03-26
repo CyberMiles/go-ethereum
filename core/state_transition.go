@@ -185,6 +185,14 @@ func (st *StateTransition) buyGasFromContract() error {
 	return nil
 }
 
+func (st *StateTransition) revertBuyGasFromContract() {
+	defaultGasPrice := st.evm.Context.Umbrella.DefaultGasPrice()
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), defaultGasPrice)
+	st.gp.AddGas(st.gas)
+
+	st.state.AddBalance(*st.msg.To(), mgval)
+}
+
 func (st *StateTransition) checkNonce() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
@@ -204,6 +212,7 @@ func (st *StateTransition) checkNonce() error {
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
 	// Check the nonce of this transaction is correct.
 	if err = st.checkNonce(); err != nil {
+		log.Debug("check nonce error", "err", err)
 		return
 	}
 
@@ -218,15 +227,18 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	if currentGasPrice.Cmp(big.NewInt(0)) == 0 && currentGasLimit > defaultGasLimit {
 		// FreeGas TX
 		isFreeGasTX = true
+		log.Debug("trying to call a freegas function", "err", nil)
 
 		// Check if the sender and contract have enough balance.
 		if err = st.buyGasFromContract(); err != nil {
+			log.Debug("insufficient contract balance", "err", err)
 			return
 		}
 	} else {
 		// Normal TX and Free TX
 		// Check if the sender and contract have enough balance.
 		if err = st.buyGasFromSender(); err != nil {
+			log.Debug("insufficient sender balance", "err", err)
 			return
 		}
 	}
@@ -239,9 +251,11 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
 	if err != nil {
+		log.Debug("insufficient gas to pay the intrinsic gas", "err", err)
 		return nil, 0, false, err
 	}
 	if err = st.useGas(gas); err != nil {
+		log.Debug("insufficient gas to pay the intrinsic gas", "err", err)
 		return nil, 0, false, err
 	}
 
@@ -276,11 +290,15 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 	if isFreeGasTX {
 		if evm.IsFreeGas() {
+			log.Debug("trigger freegas function, refund remaining gas to contract", "err", nil)
 			st.refundGasToContract()
 		} else {
-			return nil, st.gasUsed(), true, nil
+			log.Debug("freegas transaction call the non-freegas function", "err", errCallNonFreeGasFunctionWithZeroGasPrice)
+			st.revertBuyGasFromContract()
+			return nil, 0, true, nil
 		}
 	} else {
+		log.Debug("trigger normal function, refund remaining gas to sender", "err", nil)
 		st.refundGasToSender()
 	}
 
