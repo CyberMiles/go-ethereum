@@ -28,8 +28,9 @@ import (
 )
 
 var (
-	errInsufficientBalanceForGas             = errors.New("insufficient balance to pay for gas")
-	errInsufficientContractBalanceForFreeGas = errors.New("insufficient contract balance to pay for gas")
+	errInsufficientBalanceForGas              = errors.New("insufficient balance to pay for gas")
+	errInsufficientContractBalanceForFreeGas  = errors.New("insufficient contract balance to pay for gas")
+	errCallNonFreeGasFunctionWithZeroGasPrice = errors.New("zero gasPrice transaction cannot call the non-freegas function")
 )
 
 /*
@@ -150,22 +151,6 @@ func (st *StateTransition) useGas(amount uint64) error {
 	st.gas -= amount
 
 	return nil
-}
-
-func (st *StateTransition) checkGasFromSender() bool {
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
-		return false
-	}
-	return true
-}
-
-func (st *StateTransition) checkGasFromContract() bool {
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
-	if st.state.GetBalance(*st.msg.To()).Cmp(mgval) < 0 {
-		return false
-	}
-	return true
 }
 
 func (st *StateTransition) buyGasFromSender() error {
@@ -293,7 +278,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if evm.IsFreeGas() {
 			st.refundGasToContract()
 		} else {
-			return nil, 0, false, errInsufficientContractBalanceForFreeGas
+			return nil, 0, false, errCallNonFreeGasFunctionWithZeroGasPrice
 		}
 	} else {
 		st.refundGasToSender()
