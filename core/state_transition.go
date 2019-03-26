@@ -221,13 +221,13 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 		// Check if the sender and contract have enough balance.
 		if err = st.buyGasFromContract(); err != nil {
-			return nil, 0, false, err
+			return
 		}
 	} else {
 		// Normal TX and Free TX
 		// Check if the sender and contract have enough balance.
 		if err = st.buyGasFromSender(); err != nil {
-			return nil, 0, false, err
+			return
 		}
 	}
 
@@ -278,7 +278,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		if evm.IsFreeGas() {
 			st.refundGasToContract()
 		} else {
-			return nil, 0, false, errCallNonFreeGasFunctionWithZeroGasPrice
+			return nil, st.gasUsed(), true, nil
 		}
 	} else {
 		st.refundGasToSender()
