@@ -152,21 +152,6 @@ func (st *StateTransition) useGas(amount uint64) error {
 	return nil
 }
 
-func (st *StateTransition) costContractGas() error {
-	realcost := new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice)
-	if st.state.GetBalance(*st.msg.To()).Cmp(realcost) < 0 {
-		return errInsufficientContractBalanceForFreeGas
-	}
-
-	// Consume gas from contract itself
-	st.state.SubBalance(*st.msg.To(), realcost)
-
-	// Also return remaining gas to the block gas counter so it is
-	// available for the next transaction.
-	st.gp.AddGas(st.gas)
-	return nil
-}
-
 func (st *StateTransition) checkGasFromSender() bool {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
@@ -183,17 +168,13 @@ func (st *StateTransition) checkGasFromContract() bool {
 	return true
 }
 
-func (st *StateTransition) buyVirtualGas() error {
+func (st *StateTransition) buyGasFromSender() error {
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
 	}
 	st.gas += st.msg.Gas()
-
 	st.initialGas = st.msg.Gas()
-	return nil
-}
 
-func (st *StateTransition) buyGasFromSender() error {
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), st.gasPrice)
 	if st.state.GetBalance(st.msg.From()).Cmp(mgval) < 0 {
 		return errInsufficientBalanceForGas
@@ -202,7 +183,24 @@ func (st *StateTransition) buyGasFromSender() error {
 	return nil
 }
 
-func (st *StateTransition) preCheck() error {
+func (st *StateTransition) buyGasFromContract() error {
+	defaultGasLimit := st.evm.Context.Umbrella.FreeGasLimit().Uint64()
+	defaultGasPrice := st.evm.Context.Umbrella.DefaultGasPrice()
+	if err := st.gp.SubGas(defaultGasLimit); err != nil {
+		return err
+	}
+	st.gas += defaultGasLimit
+	st.initialGas = defaultGasLimit
+
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(defaultGasLimit), defaultGasPrice)
+	if st.state.GetBalance(*st.msg.To()).Cmp(mgval) < 0 {
+		return errInsufficientContractBalanceForFreeGas
+	}
+	st.state.SubBalance(*st.msg.To(), mgval)
+	return nil
+}
+
+func (st *StateTransition) checkNonce() error {
 	// Make sure this transaction's nonce is correct.
 	if st.msg.CheckNonce() {
 		nonce := st.state.GetNonce(st.msg.From())
@@ -220,19 +218,34 @@ func (st *StateTransition) preCheck() error {
 // failed. An error indicates a consensus issue.
 func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bool, err error) {
 	// Check the nonce of this transaction is correct.
-	if err = st.preCheck(); err != nil {
-		return
-	}
-
-	// Check if the sender and contract have enough balance.
-	if !st.checkGasFromSender() && !st.checkGasFromContract() {
-		return nil, 0, false, errInsufficientBalanceForGas
-	}
-
-	// Reserve Virtual Gas for this transaction.
-	if err = st.buyVirtualGas(); err != nil {
+	if err = st.checkNonce(); err != nil {
 		return nil, 0, false, err
 	}
+
+	// Get default gas limit and price from chain.
+	var (
+		defaultGasLimit = st.evm.Context.Umbrella.FreeGasLimit().Uint64()
+		currentGasLimit = st.msg.Gas()
+		currentGasPrice = st.gasPrice
+		isFreeGasTX     = false
+	)
+
+	if currentGasPrice.Cmp(big.NewInt(0)) == 0 && currentGasLimit > defaultGasLimit {
+		// FreeGas TX
+		isFreeGasTX = true
+
+		// Check if the sender and contract have enough balance.
+		if err = st.buyGasFromContract(); err != nil {
+			return nil, 0, false, err
+		}
+	} else {
+		// Normal TX and Free TX
+		// Check if the sender and contract have enough balance.
+		if err = st.buyGasFromSender(); err != nil {
+			return nil, 0, false, err
+		}
+	}
+
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
@@ -254,7 +267,9 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		// error.
 		vmerr error
 	)
+
 	evm.SetFreeGas(false)
+
 	if contractCreation {
 		ret, _, st.gas, vmerr = evm.Create(sender, st.data, st.gas, st.value)
 	} else {
@@ -271,23 +286,21 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return nil, 0, false, vmerr
 		}
 	}
+
 	st.applyRefundGasCounter()
-	if evm.IsFreeGas() {
-		if consumeErr := st.costContractGas(); consumeErr != nil {
-			if err = st.buyGasFromSender(); err != nil {
-				return nil, 0, false, err
-			}
-			st.refundGas()
+
+	if isFreeGasTX {
+		if evm.IsFreeGas() {
+			st.refundGasToContract()
+		} else {
+			return nil, 0, false, errInsufficientContractBalanceForFreeGas
 		}
 	} else {
-		if err = st.buyGasFromSender(); err != nil {
-			return nil, 0, false, err
-		}
-		st.refundGas()
+		st.refundGasToSender()
 	}
+
 	// fee for miner
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-
 	return ret, st.gasUsed(), vmerr != nil, err
 }
 
@@ -300,11 +313,21 @@ func (st *StateTransition) applyRefundGasCounter() {
 	st.gas += refund
 }
 
-func (st *StateTransition) refundGas() {
+func (st *StateTransition) refundGasToSender() {
 	// Return ETH for remaining gas, exchanged at the original rate.
 	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), st.gasPrice)
 	st.state.AddBalance(st.msg.From(), remaining)
 
+	// Also return remaining gas to the block gas counter so it is
+	// available for the next transaction.
+	st.gp.AddGas(st.gas)
+}
+
+func (st *StateTransition) refundGasToContract() {
+	defaultGasPrice := st.evm.Context.Umbrella.DefaultGasPrice()
+	// Return ETH for remaining gas, exchanged at the original rate.
+	remaining := new(big.Int).Mul(new(big.Int).SetUint64(st.gas), defaultGasPrice)
+	st.state.AddBalance(*st.msg.To(), remaining)
 	// Also return remaining gas to the block gas counter so it is
 	// available for the next transaction.
 	st.gp.AddGas(st.gas)
