@@ -169,15 +169,14 @@ func (st *StateTransition) buyGasFromSender() error {
 }
 
 func (st *StateTransition) buyGasFromContract() error {
-	defaultGasLimit := st.evm.Context.Umbrella.FreeGasLimit().Uint64()
 	defaultGasPrice := st.evm.Context.Umbrella.DefaultGasPrice()
-	if err := st.gp.SubGas(defaultGasLimit); err != nil {
+	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
 		return err
 	}
-	st.gas += defaultGasLimit
-	st.initialGas = defaultGasLimit
+	st.gas += st.msg.Gas()
+	st.initialGas = st.msg.Gas()
 
-	mgval := new(big.Int).Mul(new(big.Int).SetUint64(defaultGasLimit), defaultGasPrice)
+	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), defaultGasPrice)
 	if st.state.GetBalance(*st.msg.To()).Cmp(mgval) < 0 {
 		return errInsufficientContractBalanceForFreeGas
 	}
@@ -286,7 +285,7 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 
 	// fee for miner
 	st.state.AddBalance(st.evm.Coinbase, new(big.Int).Mul(new(big.Int).SetUint64(st.gasUsed()), st.gasPrice))
-	return ret, st.gasUsed(), vmerr != nil, err
+	return ret, st.gasUsed(), vmerr != nil, vmerr
 }
 
 func (st *StateTransition) applyRefundGasCounter() {
