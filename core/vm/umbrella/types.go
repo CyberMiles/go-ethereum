@@ -2,6 +2,7 @@ package umbrella
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 type ScheduleTx struct {
@@ -9,4 +10,9 @@ type ScheduleTx struct {
 	Receiver common.Address
 	TxData   []byte
 	Unixtime uint64
+}
+
+type TxWithSchedule struct {
+	Tx    *ethTypes.Transaction
+	SchTx *ScheduleTx
 }

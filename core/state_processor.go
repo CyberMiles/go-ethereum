@@ -82,6 +82,25 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	return receipts, allLogs, *usedGas, nil
 }
 
+func (p *StateProcessor) ProcessScheduleTx(block *types.Block, statedb *state.StateDB, usedGas *uint64, cfg vm.Config, txWithSch []*umbrella.TxWithSchedule) (types.Receipts, []*types.Log, error) {
+	var (
+		receipts types.Receipts
+		header   = block.Header()
+		allLogs  []*types.Log
+		gp       = new(GasPool).AddGas(block.GasLimit())
+	)
+	for _, tws := range txWithSch {
+		receipt, _, err := ApplyScheduleTransaction(p.config, p.bc, nil, gp, statedb, header, tws.Tx, tws.SchTx, usedGas, cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		receipts = append(receipts, receipt)
+		allLogs = append(allLogs, receipt.Logs...)
+	}
+
+	return receipts, allLogs, nil
+}
+
 // ApplyTransaction attempts to apply a transaction to the given state database
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,

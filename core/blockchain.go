@@ -43,7 +43,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/hashicorp/golang-lru"
+	lru "github.com/hashicorp/golang-lru"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 )
 
@@ -991,6 +991,15 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 	return status, nil
 }
 
+func (bc *BlockChain) WriteScheduleReceipts(block *types.Block, receipts []*types.Receipt) (status WriteStatus, err error) {
+	batch := bc.db.NewBatch()
+	rawdb.WriteScheduleReceipts(batch, block.Hash(), block.NumberU64(), receipts)
+	if err := batch.Write(); err != nil {
+		return NonStatTy, err
+	}
+	return
+}
+
 // InsertChain attempts to insert the given batch of blocks in to the canonical
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
@@ -998,7 +1007,12 @@ func (bc *BlockChain) WriteBlockWithState(block *types.Block, receipts []*types.
 //
 // After insertion is done, all accumulated events will be fired.
 func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
-	n, events, logs, err := bc.insertChain(chain)
+	n, events, logs, err := bc.insertChain(chain, nil)
+	bc.PostChainEvents(events, logs)
+	return n, err
+}
+func (bc *BlockChain) InsertChainWithSchedule(chain types.Blocks, txWithSch []*umbrella.TxWithSchedule) (int, error) {
+	n, events, logs, err := bc.insertChain(chain, txWithSch)
 	bc.PostChainEvents(events, logs)
 	return n, err
 }
@@ -1006,7 +1020,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // insertChain will execute the actual chain insertion and event aggregation. The
 // only reason this method exists as a separate one is to make locking cleaner
 // with deferred statements.
-func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*types.Log, error) {
+func (bc *BlockChain) insertChain(chain types.Blocks, txWithSch []*umbrella.TxWithSchedule) (int, []interface{}, []*types.Log, error) {
 	// Sanity check that we have something meaningful to import
 	if len(chain) == 0 {
 		return 0, nil, nil, nil
@@ -1121,7 +1135,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 			}
 			// Import all the pruned blocks to make the state available
 			bc.chainmu.Unlock()
-			_, evs, logs, err := bc.insertChain(winner)
+			_, evs, logs, err := bc.insertChain(winner, nil)
 			bc.chainmu.Lock()
 			events, coalescedLogs = evs, logs
 
@@ -1153,10 +1167,20 @@ func (bc *BlockChain) insertChain(chain types.Blocks) (int, []interface{}, []*ty
 		}
 		// Validate the state using the default validator
 		err = bc.Validator().ValidateState(block, parent, state, receipts, usedGas)
-		if err != nil {
-			bc.reportBlock(block, receipts, err)
-			return i, events, coalescedLogs, err
+
+		if len(txWithSch) > 0 {
+			schReceipts, schLogs, _ := bc.processor.ProcessScheduleTx(block, state, &usedGas, bc.vmConfig, txWithSch)
+			if err != nil {
+				bc.reportBlock(block, receipts, err)
+				return i, events, coalescedLogs, err
+			}
+			logs = append(logs, schLogs...)
+			_, err := bc.WriteScheduleReceipts(block, schReceipts)
+			if err != nil {
+				return i, events, coalescedLogs, err
+			}
 		}
+
 		proctime := time.Since(bstart)
 
 		// Write the block to the chain and get the status.

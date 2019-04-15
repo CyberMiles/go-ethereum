@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 )
 
 // Validator is an interface which defines the standard for block validation. It
@@ -43,4 +44,5 @@ type Validator interface {
 // failed.
 type Processor interface {
 	Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error)
+	ProcessScheduleTx(block *types.Block, statedb *state.StateDB, usedGas *uint64, cfg vm.Config, txWithSch []*umbrella.TxWithSchedule) (types.Receipts, []*types.Log, error)
 }
