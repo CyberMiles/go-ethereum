@@ -31,6 +31,7 @@ var (
 	errInsufficientBalanceForGas              = errors.New("insufficient balance to pay for gas")
 	errInsufficientContractBalanceForFreeGas  = errors.New("insufficient contract balance to pay for gas")
 	errCallNonFreeGasFunctionWithZeroGasPrice = errors.New("zero gasPrice transaction cannot call the non-freegas function")
+	errCannotBuyGasFromNilAddress             = errors.New("cannot buy gas from nil address")
 )
 
 /*
@@ -171,6 +172,9 @@ func (st *StateTransition) buyGasFromSender() error {
 func (st *StateTransition) buyGasFromContract() error {
 	defaultGasPrice := st.evm.Context.Umbrella.DefaultGasPrice()
 	mgval := new(big.Int).Mul(new(big.Int).SetUint64(st.msg.Gas()), defaultGasPrice)
+	if st.msg.To() == nil {
+		return errCannotBuyGasFromNilAddress
+	}
 	if st.state.GetBalance(*st.msg.To()).Cmp(mgval) < 0 {
 		return errInsufficientContractBalanceForFreeGas
 	}
@@ -224,7 +228,14 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 		isFreeGasTX     = false
 	)
 
-	if currentGasPrice.Cmp(big.NewInt(0)) == 0 && currentGasLimit > defaultGasLimit {
+	msg := st.msg
+	sender := vm.AccountRef(msg.From())
+	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
+	contractCreation := msg.To() == nil
+	contractCall := msg.To() != nil
+	zeroGasPrice := currentGasPrice.Cmp(big.NewInt(0)) == 0
+
+	if zeroGasPrice && currentGasLimit > defaultGasLimit && contractCall {
 		// FreeGas TX
 		isFreeGasTX = true
 		log.Debug("trying to call a freegas function", "err", nil)
@@ -242,11 +253,6 @@ func (st *StateTransition) TransitionDb() (ret []byte, usedGas uint64, failed bo
 			return
 		}
 	}
-
-	msg := st.msg
-	sender := vm.AccountRef(msg.From())
-	homestead := st.evm.ChainConfig().IsHomestead(st.evm.BlockNumber)
-	contractCreation := msg.To() == nil
 
 	// Pay intrinsic gas
 	gas, err := IntrinsicGas(st.data, contractCreation, homestead)
