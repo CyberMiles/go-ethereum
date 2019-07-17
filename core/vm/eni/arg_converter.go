@@ -18,8 +18,12 @@ import (
 
 type argConverter struct{}
 
+type Memory interface {
+	Get(int64, int64) []byte
+}
+
 // ConvertArguments converts arguments from ENI encoding to JSON
-func ConvertArguments(typeInfo []byte, data []byte) (ret string, err error) {
+func ConvertArguments(typeInfo []byte, data []byte, memory Memory) (ret string, err error) {
 	var cvt *argConverter
 	defer func() {
 		if r := recover(); r != nil {
@@ -33,7 +37,7 @@ func ConvertArguments(typeInfo []byte, data []byte) (ret string, err error) {
 		if 0 < i {
 			json.WriteString(",")
 		}
-		typeInfo, data = cvt.parseType(typeInfo, data, &json)
+		typeInfo, data = cvt.parseType(typeInfo, data, &json, memory)
 	}
 	json.WriteString("]")
 
@@ -41,25 +45,27 @@ func ConvertArguments(typeInfo []byte, data []byte) (ret string, err error) {
 }
 
 // assuming that data are packed
-func (cvt *argConverter) parseType(typeInfo []byte, data []byte, json *bytes.Buffer) ([]byte, []byte) {
+func (cvt *argConverter) parseType(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
 	t := typeInfo[0]
 	if ComplexType[t] {
 		if t == FIX_ARRAY_START {
-			typeInfo, data = cvt.parseFixArray(typeInfo, data, json)
+			typeInfo, data = cvt.parseFixArray(typeInfo, data, json, memory)
 		} else if t == DYN_ARRAY_START {
-			typeInfo, data = cvt.parseDynArray(typeInfo, data, json)
+			typeInfo, data = cvt.parseDynArray(typeInfo, data, json, memory)
 		} else if t == STRUCT_START {
-			typeInfo, data = cvt.parseStruct(typeInfo, data, json)
+			typeInfo, data = cvt.parseStruct(typeInfo, data, json, memory)
 		} else if t == STRING {
-			typeInfo, data = cvt.parseString(typeInfo, data, json)
+			typeInfo, data = cvt.parseString(typeInfo, data, json, memory)
+		} else if t == STRINGPTR {
+			typeInfo, data = cvt.parseStringPtr(typeInfo, data, json, memory)
 		}
 	} else { // value type
-		typeInfo, data = cvt.parseValue(typeInfo, data, json)
+		typeInfo, data = cvt.parseValue(typeInfo, data, json, memory)
 	}
 	return typeInfo, data
 }
 
-func (cvt *argConverter) parseString(typeInfo []byte, data []byte, json *bytes.Buffer) ([]byte, []byte) {
+func (cvt *argConverter) parseString(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
 	typeInfo = typeInfo[1:] // string
 	leng := new(big.Int).SetBytes(data[:32]).Int64()
 	data = data[32:]
@@ -85,8 +91,34 @@ func (cvt *argConverter) parseString(typeInfo []byte, data []byte, json *bytes.B
 	return typeInfo, data
 }
 
+func (cvt *argConverter) parseStringPtr(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
+	ptr := new(big.Int).SetBytes(data[:32]).Int64()
+	len := new(big.Int).SetBytes(memory.Get(ptr, 32)).Int64()
+	str := memory.Get(ptr+32, len)
+
+	var buffer bytes.Buffer
+	for i := int64(0); i < len; i++ {
+		if str[i] == '\\' || str[i] == '"' {
+			buffer.WriteByte('\\')
+			buffer.WriteByte(str[i])
+		} else if str[i] < 0x20 { // control characters
+			buffer.WriteString(fmt.Sprintf("\\u%04X", str[i]))
+		} else {
+			buffer.WriteByte(str[i])
+		}
+	}
+	json.WriteString("\"")
+	json.WriteString(buffer.String())
+	json.WriteString("\"")
+
+	typeInfo = typeInfo[1:]
+	data = data[32:]
+
+	return typeInfo, data
+}
+
 // parsing int32 not finished
-func (cvt *argConverter) parseFixArray(typeInfo []byte, data []byte, json *bytes.Buffer) ([]byte, []byte) {
+func (cvt *argConverter) parseFixArray(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
 	typeInfo = typeInfo[1:] // fix_array_start
 	json.WriteString("[")
 	leng := new(big.Int).SetBytes(typeInfo[:32]).Int64()
@@ -94,10 +126,10 @@ func (cvt *argConverter) parseFixArray(typeInfo []byte, data []byte, json *bytes
 
 	for i := int64(0); i < leng; i++ {
 		if i == leng-1 {
-			typeInfo, data = cvt.parseType(typeInfo, data, json)
+			typeInfo, data = cvt.parseType(typeInfo, data, json, memory)
 		} else {
 			json.WriteString(", ")
-			_, data = cvt.parseType(typeInfo, data, json)
+			_, data = cvt.parseType(typeInfo, data, json, memory)
 		}
 	}
 
@@ -106,11 +138,11 @@ func (cvt *argConverter) parseFixArray(typeInfo []byte, data []byte, json *bytes
 }
 
 // dynamic array
-func (cvt *argConverter) parseDynArray(typeInfo []byte, data []byte, json *bytes.Buffer) ([]byte, []byte) {
+func (cvt *argConverter) parseDynArray(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
 	panic(fmt.Sprintf("dynamic array not implemented yet!"))
 }
 
-func (cvt *argConverter) parseStruct(typeInfo []byte, data []byte, json *bytes.Buffer) ([]byte, []byte) {
+func (cvt *argConverter) parseStruct(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
 	typeInfo = typeInfo[1:] // struct_start
 	json.WriteString("[")
 	for i := 0; 0 < len(typeInfo); i++ {
@@ -119,7 +151,7 @@ func (cvt *argConverter) parseStruct(typeInfo []byte, data []byte, json *bytes.B
 			json.WriteString(", ")
 		}
 		if t != STRUCT_END {
-			typeInfo, data = cvt.parseType(typeInfo, data, json)
+			typeInfo, data = cvt.parseType(typeInfo, data, json, memory)
 		} else {
 			break
 		}
@@ -133,7 +165,7 @@ func (cvt *argConverter) parseStruct(typeInfo []byte, data []byte, json *bytes.B
 }
 
 // bool, int
-func (cvt *argConverter) parseValue(typeInfo []byte, data []byte, json *bytes.Buffer) ([]byte, []byte) {
+func (cvt *argConverter) parseValue(typeInfo []byte, data []byte, json *bytes.Buffer, memory Memory) ([]byte, []byte) {
 	t := typeInfo[0]
 	if t == BOOL {
 		var boolVal bool
