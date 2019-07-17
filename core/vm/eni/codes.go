@@ -109,6 +109,7 @@ const (
 	BYTE30
 	BYTE31
 	BYTE32
+	STRINGPTR
 )
 
 // types that require parsing
@@ -117,6 +118,7 @@ var ComplexType = map[byte]bool{
 	DYN_ARRAY_START: true,
 	STRUCT_START:    true,
 	STRING:          true,
+	STRINGPTR:       true,
 }
 
 // signed int

@@ -1040,7 +1040,7 @@ func initENI(evm *EVM, stack *Stack, memory *Memory) error {
 	}
 	argsType := memory.Get(typeOffset+32, argsTypeLength)
 	argsData := memory.Get(dataOffset+32, argsDataLength)
-	argsText, err := eni.ConvertArguments(argsType, argsData)
+	argsText, err := eni.ConvertArguments(argsType, argsData, memory)
 	if err != nil {
 		return err
 	}
