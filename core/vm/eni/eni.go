@@ -17,11 +17,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"unsafe"
-
-	"github.com/ethereum/go-ethereum/node"
 )
 
 type ENI struct {
@@ -102,7 +101,7 @@ func getEniFunctions() (map[string]string, error) {
 	}
 
 	// Get dynamic library path.
-	libPath := filepath.Join(node.DefaultDataDir(), "eni", "lib")
+	libPath := filepath.Join(defaultDataDir(), "eni", "lib")
 	if val, ok := os.LookupEnv("ENI_LIBRARY_PATH"); ok {
 		libPath = val
 	}
@@ -143,4 +142,29 @@ func getEniFunctions() (map[string]string, error) {
 	}
 
 	return functions, nil
+}
+
+func homeDir() string {
+	if home := os.Getenv("HOME"); home != "" {
+		return home
+	}
+	if usr, err := user.Current(); err == nil {
+		return usr.HomeDir
+	}
+	return ""
+}
+
+func defaultDataDir() string {
+	// Try to place the data folder in the user's home dir
+	home := homeDir()
+	if home != "" {
+		switch runtime.GOOS {
+		case "darwin":
+			return filepath.Join(home, "Library", "Travis")
+		default:
+			return filepath.Join(home, ".travis")
+		}
+	}
+	// As we cannot guess a stable location, return empty and handle later
+	return ""
 }
