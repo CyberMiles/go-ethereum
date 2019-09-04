@@ -2,7 +2,7 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
-.PHONY: geth android ios geth-cross swarm evm all test clean
+.PHONY: geth android ios geth-cross evm all test clean
 .PHONY: geth-linux geth-linux-386 geth-linux-amd64 geth-linux-mips64 geth-linux-mips64le
 .PHONY: geth-linux-arm geth-linux-arm-5 geth-linux-arm-6 geth-linux-arm-7 geth-linux-arm64
 .PHONY: geth-darwin geth-darwin-386 geth-darwin-amd64
@@ -10,8 +10,7 @@
 
 GOBIN = $(shell pwd)/build/bin
 GO ?= latest
-ENI_LIB?=$(HOME)/.travis/eni/lib
-CGO_LDFLAGS = -L$(ENI_LIB) -Wl,-rpath,$(ENI_LIB)
+CGO_LDFLAGS = -L$(HOME)/.travis/eni/lib -Wl,-rpath,$(HOME)/.travis/eni/lib
 CGO_LDFLAGS_ALLOW = "-I.*"
 
 geth:
@@ -49,6 +48,7 @@ lint: ## Run linters.
 	build/env.sh go run build/ci.go lint
 
 clean:
+	./build/clean_go_build_cache.sh
 	rm -fr build/_workspace/pkg/ $(GOBIN)/*
 
 # The devtools target installs tools required for 'go generate'.
