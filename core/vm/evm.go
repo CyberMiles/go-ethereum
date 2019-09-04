@@ -18,7 +18,6 @@ package vm
 
 import (
 	"math/big"
-	"os"
 	"sync/atomic"
 	"time"
 
@@ -158,11 +157,7 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 		randomNumberCounter: 0,
 	}
 
-	if len(os.Getenv("EVMC_PATH")) != 0 {
-		evm.interpreters[0] = NewEVMC(evm)
-	} else {
-		evm.interpreters[0] = NewEVMInterpreter(evm, vmConfig)
-	}
+	evm.interpreters[0] = NewEVMInterpreter(evm, vmConfig)
 	evm.interpreter = evm.interpreters[0]
 
 	return evm
