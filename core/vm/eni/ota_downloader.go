@@ -11,8 +11,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/ethereum/go-ethereum/node"
 )
 
 type OTAInfo struct {
@@ -187,7 +185,7 @@ func (ota *OTAInstance) Register(info OTAInfo) (err error) {
 		delete(ota.enableInfos, info.LibName)
 	}
 
-	// Overwrite old libraries by LibName.
+	// Overwrite old libraries by libName.
 	ota.enableInfos[info.LibName] = info
 	err = os.Rename(
 		filepath.Join(ota.stagingLibPath, generateFileName(info)),
@@ -231,7 +229,7 @@ func removeLibrary(path string, info OTAInfo) (err error) {
 
 // Get libPath from default data path or ENI_LIBRARY_PATH
 func getLibPath() (libPath string, err error) {
-	libPath = filepath.Join(node.DefaultDataDir(), "eni", "lib")
+	libPath = filepath.Join(defaultDataDir(), "eni", "lib")
 	if val, ok := os.LookupEnv("ENI_LIBRARY_PATH"); ok {
 		libPath = val
 	}
