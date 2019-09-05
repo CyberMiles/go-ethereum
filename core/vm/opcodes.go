@@ -51,9 +51,6 @@ const (
 	MULMOD
 	EXP
 	SIGNEXTEND
-	SADD
-	SSUB
-	SMUL
 )
 
 // 0x10 range - comparison ops.
@@ -409,10 +406,6 @@ var opCodeToString = map[OpCode]string{
 	PUSH: "PUSH",
 	DUP:  "DUP",
 	SWAP: "SWAP",
-
-	SADD: "SADD",
-	SSUB: "SSUB",
-	SMUL: "SMUL",
 }
 
 func (op OpCode) String() string {
@@ -575,9 +568,6 @@ var stringToOp = map[string]OpCode{
 	"SCHEDULE":       SCHEDULE,
 	"FREEGAS":        FREEGAS,
 	"RAND":           RAND,
-	"SADD":           SADD,
-	"SSUB":           SSUB,
-	"SMUL":           SMUL,
 }
 
 // StringToOp finds the opcode whose name is stored in `str`.
