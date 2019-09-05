@@ -220,9 +220,7 @@ const (
 	CALLCODE
 	RETURN
 	DELEGATECALL
-	// FIXME ENI is conflict with CREATE2
-	// CREATE2
-	ENI // Ethereum Native Interface 0xf5
+	CREATE2
 	ISVALIDATOR
 	SCHEDULE
 	FREEGAS
@@ -230,6 +228,7 @@ const (
 	STATICCALL = 0xfa
 
 	REVERT       = 0xfd
+	ENI          = 0xfe // Ethereum Native Interface
 	SELFDESTRUCT = 0xff
 )
 
@@ -397,14 +396,14 @@ var opCodeToString = map[OpCode]string{
 	RETURN:       "RETURN",
 	CALLCODE:     "CALLCODE",
 	DELEGATECALL: "DELEGATECALL",
-	// CREATE2:      "CREATE2",
-	ENI:          "ENI",
+	CREATE2:      "CREATE2",
 	ISVALIDATOR:  "ISVALIDATOR",
 	SCHEDULE:     "SCHEDULE",
 	FREEGAS:      "FREEGAS",
 	RAND:         "RAND",
 	STATICCALL:   "STATICCALL",
 	REVERT:       "REVERT",
+	ENI:          "ENI",
 	SELFDESTRUCT: "SELFDESTRUCT",
 
 	PUSH: "PUSH",
@@ -565,6 +564,7 @@ var stringToOp = map[string]OpCode{
 	"LOG3":           LOG3,
 	"LOG4":           LOG4,
 	"CREATE":         CREATE,
+	"CREATE2":        CREATE2,
 	"CALL":           CALL,
 	"RETURN":         RETURN,
 	"CALLCODE":       CALLCODE,
@@ -578,7 +578,6 @@ var stringToOp = map[string]OpCode{
 	"SADD":           SADD,
 	"SSUB":           SSUB,
 	"SMUL":           SMUL,
-	// "CREATE2":        CREATE2,
 }
 
 // StringToOp finds the opcode whose name is stored in `str`.
