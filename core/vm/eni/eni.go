@@ -73,8 +73,9 @@ func (eni *ENI) Gas() (uint64, error) {
 	gas := uint64(C.fork_gas(eni.gasFunc, C.CString(eni.argsText), &status))
 	if int(status) != C.ENI_SUCCESS {
 		errMsg := C.eni_error_msg(status)
-		fmt.Printf("ENI error: %s\n", C.GoString(errMsg))
-		return gas, errors.New("ENI " + eni.opName + " gas error, msg = " + C.GoString(errMsg))
+		err := fmt.Errorf("ENI %s gas error %d, %s", eni.opName, int(status), C.GoString(errMsg))
+		fmt.Println(err)
+		return gas, err
 	}
 	return gas, nil
 }
@@ -90,8 +91,9 @@ func (eni *ENI) ExecuteENI() (string, error) {
 
 	if int(status) != C.ENI_SUCCESS {
 		errMsg := C.eni_error_msg(status)
-		fmt.Printf("ENI error: %s\n", C.GoString(errMsg))
-		return retGoString, errors.New("ENI " + eni.opName + " run error, msg = " + C.GoString(errMsg))
+		err := fmt.Errorf("ENI %s run error %d, %s", eni.opName, int(status), C.GoString(errMsg))
+		fmt.Println(err)
+		return retGoString, err
 	}
 	return retGoString, nil
 }

@@ -31,6 +31,7 @@
     X(22,   ENI_KILLED,        "ENI operation got killed")                    \
     X(23,   ENI_SEGFAULT,      "ENI operation segmentation fault")            \
     X(24,   ENI_NULL_RESULT,   "ENI operation returns NULL")                  \
+    X(87,   ENI_INVALID_JSON,  "ENI got invalid JSON")                        \
 
 #define ENI_ERR_ENUM(ID, NAME, DESC) NAME = ID,
 #define ENI_ERR_TEXT(ID, NAME, TEXT) case ID: return TEXT;
