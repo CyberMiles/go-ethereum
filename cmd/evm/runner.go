@@ -187,14 +187,24 @@ func runCmd(ctx *cli.Context) error {
 	}
 	tstart := time.Now()
 	var leftOverGas uint64
+	var inputbytes []byte
+	if ctx.GlobalString(InputFileFlag.Name) != "" {
+		var err error
+		inputbytes, err = ioutil.ReadFile(ctx.GlobalString(InputFileFlag.Name))
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		inputbytes = common.Hex2Bytes(ctx.GlobalString(InputFlag.Name))
+	}
 	if ctx.GlobalBool(CreateFlag.Name) {
-		input := append(code, common.Hex2Bytes(ctx.GlobalString(InputFlag.Name))...)
+		input := append(code, inputbytes...)
 		ret, _, leftOverGas, err = runtime.Create(input, &runtimeConfig)
 	} else {
 		if len(code) > 0 {
 			statedb.SetCode(receiver, code)
 		}
-		ret, leftOverGas, err = runtime.Call(receiver, common.Hex2Bytes(ctx.GlobalString(InputFlag.Name)), &runtimeConfig)
+		ret, leftOverGas, err = runtime.Call(receiver, inputbytes, &runtimeConfig)
 	}
 	execTime := time.Since(tstart)
 
