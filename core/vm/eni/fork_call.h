@@ -30,8 +30,12 @@
     X(21,   ENI_TLE,           "Execution timeout")                           \
     X(22,   ENI_KILLED,        "ENI operation got killed")                    \
     X(23,   ENI_SEGFAULT,      "ENI operation segmentation fault")            \
-    X(24,   ENI_NULL_RESULT,   "ENI operation returns NULL")                  \
-    X(87,   ENI_INVALID_JSON,  "ENI got invalid JSON")                        \
+    X(24,   ENI_NULL_RESULT,   "ENI operation returns NULL (unused)")         \
+    /* 1xx errors are errors from eni functions themselves defined in eni.h */\
+    X(100,  ENI_LIBENI_ERRBASE,"Base number for errors occurred in libeni")   \
+    X(101,  ENI_ARGS_INVALID,  "Libeni failed to parse args as JSON")         \
+    X(102,  ENI_OP_PARSE_FAILED,"op_parse failed")                            \
+    X(103,  ENI_OP_RUN_FAILED,  "op_run failed")                              \
 
 #define ENI_ERR_ENUM(ID, NAME, DESC) NAME = ID,
 #define ENI_ERR_TEXT(ID, NAME, TEXT) case ID: return TEXT;
@@ -54,40 +58,28 @@ typedef void* eni_function;
 // represents data returned by eni_function
 typedef void* eni_return_data;
 
-// determine how long the result is, the reason that
-// we need this function is, we cannot directly find
-// the size of data void* is pointing to
-typedef size_t (*eni_result_length_finder)(eni_return_data);
-
-size_t gas_result_length(eni_return_data p) {
-    // libeni returns int64_t* for gas function
-    return sizeof(int64_t);
-}
-
-size_t run_result_length(eni_return_data p) {
-    // libeni returns char* for run function
-    return strlen((char*)p)+1;
-}
-
 // A function that knows the actual type of eni functions
-typedef eni_return_data (*eni_executor)(eni_function, char*);
+typedef int (*eni_executor)(eni_function, char*, eni_return_data*, ssize_t*);
 
-eni_return_data eni_gas_executor(eni_function f, char* arg) {
-    typedef int64_t* (*func_gas)(char*);
-    return ((func_gas)f)(arg);
+int eni_gas_executor(eni_function f, char* arg, eni_return_data *result, ssize_t *result_length) {
+    typedef int (*func_gas)(char*, eni_return_data*);
+    *result_length = sizeof(uint64_t);
+    return ((func_gas)f)(arg, result);
 }
-eni_return_data eni_run_executor(eni_function f, char* arg) {
-    typedef char* (*func_run)(char*);
-    return ((func_run)f)(arg);
+int eni_run_executor(eni_function f, char* arg, eni_return_data *result, ssize_t *result_length) {
+    typedef int (*func_run)(char*, eni_return_data*);
+    int libeni_status = ((func_run)f)(arg, result);
+    *result_length = strlen((char*)*result);
+    return libeni_status;
 }
 
-eni_return_data fork_call(eni_result_length_finder, eni_executor, eni_function f, char* args_text, int *status);
+eni_return_data fork_call(eni_executor, eni_function f, char* args_text, int *status);
 eni_return_data wait_and_read_from_child(int pid, int pfd, int* eni_status);
-int eni_fork_child(eni_result_length_finder, eni_executor, eni_function f, char* args_text, int pfd);
+int eni_fork_child(eni_executor, eni_function f, char* args_text, int pfd);
 
 // f should be op_gas()
 uint64_t fork_gas(void* f, char *argsText, int* status) {
-    uint64_t* ret = fork_call(gas_result_length, eni_gas_executor, (eni_function)f, argsText, status);
+    uint64_t* ret = fork_call(eni_gas_executor, (eni_function)f, argsText, status);
     if (ret == NULL) return 0;
     uint64_t val = *ret;
     free(ret);
@@ -96,11 +88,10 @@ uint64_t fork_gas(void* f, char *argsText, int* status) {
 
 // f should be op_run()
 char* fork_run(void* f, char *argsText, int* status){
-    return (char*) fork_call(run_result_length, eni_run_executor, (eni_function)f, argsText, status);
+    return (char*) fork_call(eni_run_executor, (eni_function)f, argsText, status);
 }
 
 eni_return_data fork_call(
-    eni_result_length_finder get_result_len,
     eni_executor exe,
     eni_function f,
     char* args_text,
@@ -122,7 +113,7 @@ eni_return_data fork_call(
     }
 
     int pid;
-    if ((pid = eni_fork_child(get_result_len, exe, f, args_text, pfd[1])) < 0) {
+    if ((pid = eni_fork_child(exe, f, args_text, pfd[1])) < 0) {
         *status = ENI_FAILURE; // failed to fork a child
         close(pfd[0]);
         close(pfd[1]);
@@ -315,7 +306,6 @@ end:
 
 // @return the child pid, if less than zero, means failed to fork()
 int eni_fork_child(
-    eni_result_length_finder get_result_len,
     eni_executor exe,
     eni_function f,
     char* args_text,
@@ -330,11 +320,12 @@ int eni_fork_child(
     int errnum;
     if ((errnum = set_up_sandbox(pfd)) != ENI_SUCCESS)
         exit(errnum);
-    void* result = exe(f, args_text);
-    if (!result)
-        syscall(SYS_exit, ENI_NULL_RESULT);
-    int tot_write = 0;
-    int len = get_result_len(result);
+    void* result;
+    ssize_t len;
+    int libeni_status = exe(f, args_text, &result, &len);
+    if (libeni_status)
+        syscall(SYS_exit, ENI_LIBENI_ERRBASE + libeni_status);
+    ssize_t tot_write = 0;
     while (tot_write < len) {
         int nwrite = write(pfd, result, len-tot_write);
         if (nwrite <= 0)
