@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm/eni"
 	"github.com/ethereum/go-ethereum/core/vm/umbrella"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/sha3"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -360,7 +361,7 @@ func opSAR(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *
 	defer interpreter.intPool.put(shift) // First operand back into the pool
 
 	if shift.Cmp(common.Big256) >= 0 {
-		if value.Sign() > 0 {
+		if value.Sign() >= 0 {
 			value.SetUint64(0)
 		} else {
 			value.SetInt64(-1)
@@ -378,13 +379,20 @@ func opSAR(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *
 func opSha3(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	offset, size := stack.pop(), stack.pop()
 	data := memory.Get(offset.Int64(), size.Int64())
-	hash := crypto.Keccak256(data)
-	evm := interpreter.evm
 
-	if evm.vmConfig.EnablePreimageRecording {
-		evm.StateDB.AddPreimage(common.BytesToHash(hash), data)
+	if interpreter.hasher == nil {
+		interpreter.hasher = sha3.NewKeccak256().(keccakState)
+	} else {
+		interpreter.hasher.Reset()
 	}
-	stack.push(interpreter.intPool.get().SetBytes(hash))
+	interpreter.hasher.Write(data)
+	interpreter.hasher.Read(interpreter.hasherBuf[:])
+
+	evm := interpreter.evm
+	if evm.vmConfig.EnablePreimageRecording {
+		evm.StateDB.AddPreimage(interpreter.hasherBuf, data)
+	}
+	stack.push(interpreter.intPool.get().SetBytes(interpreter.hasherBuf[:]))
 
 	interpreter.intPool.put(offset, size)
 	return nil, nil
@@ -502,6 +510,38 @@ func opExtCodeCopy(pc *uint64, interpreter *EVMInterpreter, contract *Contract, 
 	return nil, nil
 }
 
+// opExtCodeHash returns the code hash of a specified account.
+// There are several cases when the function is called, while we can relay everything
+// to `state.GetCodeHash` function to ensure the correctness.
+//   (1) Caller tries to get the code hash of a normal contract account, state
+// should return the relative code hash and set it as the result.
+//
+//   (2) Caller tries to get the code hash of a non-existent account, state should
+// return common.Hash{} and zero will be set as the result.
+//
+//   (3) Caller tries to get the code hash for an account without contract code,
+// state should return emptyCodeHash(0xc5d246...) as the result.
+//
+//   (4) Caller tries to get the code hash of a precompiled account, the result
+// should be zero or emptyCodeHash.
+//
+// It is worth noting that in order to avoid unnecessary create and clean,
+// all precompile accounts on mainnet have been transferred 1 wei, so the return
+// here should be emptyCodeHash.
+// If the precompile account is not transferred any amount on a private or
+// customized chain, the return value will be zero.
+//
+//   (5) Caller tries to get the code hash for an account which is marked as suicided
+// in the current transaction, the code hash of this account should be returned.
+//
+//   (6) Caller tries to get the code hash for an account which is marked as deleted,
+// this account should be regarded as a non-existent account and zero should be returned.
+func opExtCodeHash(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	slot := stack.peek()
+	slot.SetBytes(interpreter.evm.StateDB.GetCodeHash(common.BigToAddress(slot)).Bytes())
+	return nil, nil
+}
+
 func opGasprice(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	stack.push(interpreter.intPool.get().Set(interpreter.evm.GasPrice))
 	return nil, nil
@@ -531,7 +571,7 @@ func opTimestamp(pc *uint64, interpreter *EVMInterpreter, contract *Contract, me
 }
 
 func opNumber(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(math.U256(interpreter.intPool.get().Set(interpreter.evm.Time)))
+	stack.push(math.U256(interpreter.intPool.get().Set(interpreter.evm.BlockNumber)))
 	return nil, nil
 }
 
@@ -593,7 +633,7 @@ func opSstore(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 
 func opJump(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	pos := stack.pop()
-	if !contract.jumpdests.has(contract.CodeHash, contract.Code, pos) {
+	if !contract.validJumpdest(pos) {
 		nop := contract.GetOp(pos.Uint64())
 		return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)
 	}
@@ -606,7 +646,7 @@ func opJump(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory 
 func opJumpi(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	pos, cond := stack.pop(), stack.pop()
 	if cond.Sign() != 0 {
-		if !contract.jumpdests.has(contract.CodeHash, contract.Code, pos) {
+		if !contract.validJumpdest(pos) {
 			nop := contract.GetOp(pos.Uint64())
 			return nil, fmt.Errorf("invalid jump destination (%v) %v", nop, pos)
 		}
@@ -671,8 +711,36 @@ func opCreate(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	return nil, nil
 }
 
+func opCreate2(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	var (
+		endowment    = stack.pop()
+		offset, size = stack.pop(), stack.pop()
+		salt         = stack.pop()
+		input        = memory.Get(offset.Int64(), size.Int64())
+		gas          = contract.Gas
+	)
+
+	// Apply EIP150
+	gas -= gas / 64
+	contract.UseGas(gas)
+	res, addr, returnGas, suberr := interpreter.evm.Create2(contract, input, gas, endowment, salt)
+	// Push item on the stack based on the returned error.
+	if suberr != nil {
+		stack.push(interpreter.intPool.getZero())
+	} else {
+		stack.push(addr.Big())
+	}
+	contract.Gas += returnGas
+	interpreter.intPool.put(endowment, offset, size, salt)
+
+	if suberr == errExecutionReverted {
+		return res, nil
+	}
+	return nil, nil
+}
+
 func opCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	// Pop gas. The actual gas in in interpreter.evm.callGasTemp.
+	// Pop gas. The actual gas in interpreter.evm.callGasTemp.
 	interpreter.intPool.put(stack.pop())
 	gas := interpreter.evm.callGasTemp
 	// Pop other call parameters.
@@ -730,7 +798,7 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 }
 
 func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	// Pop gas. The actual gas is in evm.callGasTemp.
+	// Pop gas. The actual gas is in interpreter.evm.callGasTemp.
 	interpreter.intPool.put(stack.pop())
 	gas := interpreter.evm.callGasTemp
 	// Pop other call parameters.
@@ -755,7 +823,7 @@ func opDelegateCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract,
 }
 
 func opStaticCall(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	// Pop gas. The actual gas is in evm.callGasTemp.
+	// Pop gas. The actual gas is in interpreter.evm.callGasTemp.
 	interpreter.intPool.put(stack.pop())
 	gas := interpreter.evm.callGasTemp
 	// Pop other call parameters.

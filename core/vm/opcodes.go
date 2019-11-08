@@ -98,6 +98,7 @@ const (
 	EXTCODECOPY
 	RETURNDATASIZE
 	RETURNDATACOPY
+	EXTCODEHASH
 )
 
 // 0x40 range - block operations.
@@ -217,7 +218,7 @@ const (
 	CALLCODE
 	RETURN
 	DELEGATECALL
-	ENI // Ethereum Native Interface 0xf5
+	CREATE2
 	ISVALIDATOR
 	SCHEDULE
 	FREEGAS
@@ -225,6 +226,7 @@ const (
 	STATICCALL = 0xfa
 
 	REVERT       = 0xfd
+	ENI          = 0xfe
 	SELFDESTRUCT = 0xff
 )
 
@@ -285,6 +287,7 @@ var opCodeToString = map[OpCode]string{
 	EXTCODECOPY:    "EXTCODECOPY",
 	RETURNDATASIZE: "RETURNDATASIZE",
 	RETURNDATACOPY: "RETURNDATACOPY",
+	EXTCODEHASH:    "EXTCODEHASH",
 
 	// 0x40 range - block operations.
 	BLOCKHASH:  "BLOCKHASH",
@@ -389,6 +392,7 @@ var opCodeToString = map[OpCode]string{
 	RETURN:       "RETURN",
 	CALLCODE:     "CALLCODE",
 	DELEGATECALL: "DELEGATECALL",
+	CREATE2:      "CREATE2",
 	ENI:          "ENI",
 	ISVALIDATOR:  "ISVALIDATOR",
 	SCHEDULE:     "SCHEDULE",
@@ -465,6 +469,7 @@ var stringToOp = map[string]OpCode{
 	"EXTCODECOPY":    EXTCODECOPY,
 	"RETURNDATASIZE": RETURNDATASIZE,
 	"RETURNDATACOPY": RETURNDATACOPY,
+	"EXTCODEHASH":    EXTCODEHASH,
 	"BLOCKHASH":      BLOCKHASH,
 	"COINBASE":       COINBASE,
 	"TIMESTAMP":      TIMESTAMP,
@@ -553,6 +558,7 @@ var stringToOp = map[string]OpCode{
 	"LOG3":           LOG3,
 	"LOG4":           LOG4,
 	"CREATE":         CREATE,
+	"CREATE2":        CREATE2,
 	"CALL":           CALL,
 	"RETURN":         RETURN,
 	"CALLCODE":       CALLCODE,
