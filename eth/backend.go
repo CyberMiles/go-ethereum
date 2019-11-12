@@ -180,18 +180,11 @@ func New(ctx *node.ServiceContext, config *Config) (*Ethereum, error) {
 	eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine, config.MinerRecommit, config.MinerGasFloor, config.MinerGasCeil, eth.isLocalBlock)
 	eth.miner.SetExtra(makeExtraData(config.MinerExtraData))
 
-	if pending == nil {
-		eth.miner = miner.New(eth, eth.chainConfig, eth.EventMux(), eth.engine)
-		eth.miner.SetExtra(makeExtraData(config.ExtraData))
-		pending = eth.miner
-	}
-
-	eth.APIBackend = &EthAPIBackend{eth, nil, pending}
+	eth.APIBackend = &EthAPIBackend{eth, nil, nil}
 	gpoParams := config.GPO
 	if gpoParams.Default == nil {
 		gpoParams.Default = config.MinerGasPrice
 	}
-
 	eth.APIBackend.gpo = gasprice.NewOracle(eth.APIBackend, gpoParams)
 
 	return eth, nil
