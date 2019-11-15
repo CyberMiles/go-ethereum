@@ -77,6 +77,12 @@ var testVMConfig = func() vm.Config {
 	flag.StringVar(&vmconfig.EVMInterpreter, utils.EVMInterpreterFlag.Name, utils.EVMInterpreterFlag.Value, utils.EVMInterpreterFlag.Usage)
 	flag.StringVar(&vmconfig.EWASMInterpreter, utils.EWASMInterpreterFlag.Name, utils.EWASMInterpreterFlag.Value, utils.EWASMInterpreterFlag.Usage)
 	flag.Parse()
+	if vmconfig.EVMInterpreter != "" {
+		vm.InitEVMCEVM(vmconfig.EVMInterpreter)
+	}
+	if vmconfig.EWASMInterpreter != "" {
+		vm.InitEVMCEwasm(vmconfig.EWASMInterpreter)
+	}
 	return vmconfig
 }()
 
