@@ -166,8 +166,6 @@ func NewEVM(ctx Context, statedb StateDB, chainConfig *params.ChainConfig, vmCon
 	if chainConfig.IsEWASM(ctx.BlockNumber) {
 		if vmConfig.EWASMInterpreter != "" {
 			evm.interpreters = append(evm.interpreters, &EVMC{ewasmModule, evm, evmc.CapabilityEWASM, false})
-		} else {
-			panic("The default ewasm interpreter not supported yet.")
 		}
 	}
 

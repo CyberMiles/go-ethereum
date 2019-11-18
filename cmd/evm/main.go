@@ -116,6 +116,11 @@ var (
 		Usage: "External EVM configuration (default = built-in interpreter)",
 		Value: "",
 	}
+	EWASMInterpreterFlag = cli.StringFlag{
+		Name:  "vm.ewasm",
+		Usage: "External ewasm configuration (default = built-in interpreter)",
+		Value: "",
+	}
 )
 
 func init() {
@@ -140,6 +145,7 @@ func init() {
 		DisableMemoryFlag,
 		DisableStackFlag,
 		EVMInterpreterFlag,
+		EWASMInterpreterFlag,
 	}
 	app.Commands = []cli.Command{
 		compileCommand,
