@@ -485,6 +485,17 @@ func (bc *BlockChain) CurrentFastBlock() *types.Block {
 	return bc.currentFastBlock.Load().(*types.Block)
 }
 
+// ValidatorInterface for devchain
+type ValidatorInterface interface {
+	ValidateState(block *types.Block, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error
+	ValidateBody(block *types.Block) error
+}
+
+// SetValidator for devchain
+func (bc *BlockChain) SetValidator(validator ValidatorInterface) {
+	bc.validator = validator.(Validator)
+}
+
 // Validator returns the current validator.
 func (bc *BlockChain) Validator() Validator {
 	return bc.validator
