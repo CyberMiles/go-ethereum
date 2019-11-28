@@ -105,6 +105,10 @@ func runCmd(ctx *cli.Context) error {
 	} else {
 		statedb, _ = state.New(common.Hash{}, state.NewDatabase(rawdb.NewMemoryDatabase()))
 		genesisConfig = new(core.Genesis)
+		// Enable Ewasm by default
+		chainConfig = &params.ChainConfig{}
+		chainConfig.EWASMBlock = big.NewInt(0)
+		chainConfig.ByzantiumBlock = big.NewInt(0)
 	}
 	if ctx.GlobalString(SenderFlag.Name) != "" {
 		sender = common.HexToAddress(ctx.GlobalString(SenderFlag.Name))
@@ -177,10 +181,18 @@ func runCmd(ctx *cli.Context) error {
 		Coinbase:    genesisConfig.Coinbase,
 		BlockNumber: new(big.Int).SetUint64(genesisConfig.Number),
 		EVMConfig: vm.Config{
-			Tracer:         tracer,
-			Debug:          ctx.GlobalBool(DebugFlag.Name) || ctx.GlobalBool(MachineFlag.Name),
-			EVMInterpreter: ctx.GlobalString(EVMInterpreterFlag.Name),
+			Tracer:           tracer,
+			Debug:            ctx.GlobalBool(DebugFlag.Name) || ctx.GlobalBool(MachineFlag.Name),
+			EVMInterpreter:   ctx.GlobalString(EVMInterpreterFlag.Name),
+			EWASMInterpreter: ctx.GlobalString(EWASMInterpreterFlag.Name),
 		},
+	}
+
+	if runtimeConfig.EVMConfig.EVMInterpreter != "" {
+		vm.InitEVMCEVM(runtimeConfig.EVMConfig.EVMInterpreter)
+	}
+	if runtimeConfig.EVMConfig.EWASMInterpreter != "" {
+		vm.InitEVMCEwasm(runtimeConfig.EVMConfig.EWASMInterpreter)
 	}
 
 	if cpuProfilePath := ctx.GlobalString(CPUProfileFlag.Name); cpuProfilePath != "" {

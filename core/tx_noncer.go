@@ -32,6 +32,29 @@ type txNoncer struct {
 	lock     sync.Mutex
 }
 
+// public interfaces of tx noncer for devchain
+type TxNoncer struct {
+	noncer *txNoncer
+}
+
+func NewTxNoncer(statedb *state.StateDB) *TxNoncer {
+	return &TxNoncer{
+		noncer: newTxNoncer(statedb),
+	}
+}
+
+func (txn *TxNoncer) Get(addr common.Address) uint64 {
+	return txn.noncer.get(addr)
+}
+
+func (txn *TxNoncer) Set(addr common.Address, nonce uint64) {
+	txn.noncer.set(addr, nonce)
+}
+
+func (txn *TxNoncer) State() *state.StateDB {
+	return txn.noncer.fallback
+}
+
 // newTxNoncer creates a new virtual state database to track the pool nonces.
 func newTxNoncer(statedb *state.StateDB) *txNoncer {
 	return &txNoncer{
